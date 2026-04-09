@@ -1,0 +1,16 @@
+// app/(app)/layout.tsx
+import type { Metadata } from 'next'
+import './globals.css'
+
+export const metadata: Metadata = {
+  title: 'CageLeague',
+  description: 'Private PLL Fantasy League',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
