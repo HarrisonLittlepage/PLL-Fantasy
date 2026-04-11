@@ -19,17 +19,21 @@ interface Props {
   onRefresh: () => void
 }
 
-export default function MyTeamTab({ myTeamId, players, scores, rosters, settings, schedule, gamePicks, onRefresh }: Props) {
+export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, gamePicks, onRefresh }: Props) {
   const [swapSlot, setSwapSlot] = useState<number | null>(null)
   const [filter, setFilter] = useState('ALL')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
 
   const week = settings.current_week
   const byeMode = settings.bye_scoring_mode
   const wkData = schedule.find(s => s.week === week)
   const isDoubleTeam = wkData?.double_team_id === myTeamId
   const isByeTeam = wkData?.bye_team_id === myTeamId
+  const myTeam = teams.find(t => t.id === myTeamId)
 
   const myRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
   const playerAtSlot = (idx: number) => {
@@ -75,6 +79,24 @@ export default function MyTeamTab({ myTeamId, players, scores, rosters, settings
     setTimeout(() => setMsg(''), 3000)
   }
 
+  async function saveTeamName() {
+    if (!nameInput.trim()) return
+    setNameSaving(true)
+    const res = await fetch('/api/roster/update-team-name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team_id: myTeamId, name: nameInput.trim() }),
+    })
+    if (res.ok) {
+      onRefresh()
+      setEditingName(false)
+    } else {
+      const d = await res.json()
+      setMsg(d.error ?? 'Error saving name')
+    }
+    setNameSaving(false)
+  }
+
   const available = (swapSlot !== null
     ? freeAgents.filter(p => {
         const slotPos = SLOT_POSITIONS[swapSlot]
@@ -90,6 +112,36 @@ export default function MyTeamTab({ myTeamId, players, scores, rosters, settings
 
   return (
     <div>
+      {/* Team name header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        {editingName ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
+            <input
+              className="input"
+              style={{ maxWidth: 260 }}
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') setEditingName(false) }}
+              autoFocus
+            />
+            <button className="btn btn-sm btn-gold" onClick={saveTeamName} disabled={nameSaving}>
+              {nameSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button className="btn btn-sm btn-outline" onClick={() => setEditingName(false)}>Cancel</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{myTeam?.name}</div>
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => { setNameInput(myTeam?.name ?? ''); setEditingName(true) }}
+            >
+              Rename
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid4" style={{ marginBottom: 18 }}>
         <div className="stat-chip"><div className="stat-val">{weekScore}</div><div className="stat-lbl">Wk {week} Score</div></div>
         <div className="stat-chip"><div className="stat-val">{record.wins}-{record.losses}</div><div className="stat-lbl">Record</div></div>

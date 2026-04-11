@@ -3,8 +3,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'CageLeague',
-  description: 'Private PLL Fantasy League',
+  title: 'PLL Fantasy App',
+  description: 'PLL Fantasy App',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

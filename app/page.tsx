@@ -28,7 +28,7 @@ export default function Home() {
   const [schedule, setSchedule] = useState<WeekSchedule[]>([])
   const [matchups, setMatchups] = useState<Matchup[]>([])
   const [gamePicks, setGamePicks] = useState<GamePick[]>([])
-  const [tab, setTab] = useState('team')
+  const [tab, setTab] = useState('matchups')
   const [loading, setLoading] = useState(true)
 
   const loadData = useCallback(async () => {
@@ -66,6 +66,7 @@ export default function Home() {
     setSchedule(scheduleData ?? [])
     setMatchups(matchupsData ?? [])
     setGamePicks(picksData ?? [])
+    if (prof?.team_id) setTab('team')
     setLoading(false)
   }, [supabase, router])
 
@@ -92,7 +93,7 @@ export default function Home() {
     { id: 'matchups', label: 'Matchups' },
     { id: 'standings', label: 'Standings' },
     { id: 'fa', label: 'Free Agents', hidden: !profile.team_id },
-    { id: 'league', label: 'League' },
+    { id: 'rosters', label: 'Rosters' },
     { id: 'commissioner', label: 'Commissioner', commOnly: true },
   ].filter(t => !t.hidden && (!t.commOnly || isCommissioner))
 
@@ -101,7 +102,7 @@ export default function Home() {
   return (
     <div className="app-container">
       <div className="nav">
-        <div className="nav-logo">Cage<span>League</span></div>
+        <div className="nav-logo">PLL Fantasy<span> App</span></div>
         <div className="nav-tabs">
           {navTabs.map(t => (
             <button
@@ -116,7 +117,7 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: isCommissioner ? '#a78bfa' : 'var(--green)', display: 'inline-block', marginRight: 6 }} />
-            {myTeam ? `${myTeam.icon} ${myTeam.name}` : profile.display_name}
+            {myTeam ? myTeam.name : profile.display_name}
             {isCommissioner && <span style={{ marginLeft: 6, fontSize: 10, color: '#a78bfa' }}>(Comm)</span>}
           </div>
           <button className="btn btn-sm btn-outline" onClick={handleSignOut}>Sign out</button>
@@ -127,7 +128,7 @@ export default function Home() {
       {tab === 'matchups' && <MatchupsTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'standings' && <StandingsTab {...sharedProps} />}
       {tab === 'fa' && profile.team_id && <FreeAgentsTab {...sharedProps} myTeamId={profile.team_id} />}
-      {tab === 'league' && <LeagueTab {...sharedProps} />}
+      {tab === 'rosters' && <LeagueTab {...sharedProps} />}
       {tab === 'commissioner' && isCommissioner && <CommissionerTab {...sharedProps} />}
     </div>
   )

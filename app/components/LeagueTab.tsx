@@ -44,7 +44,6 @@ export default function LeagueTab({ teams, players, scores, rosters, settings, s
               onClick={() => setViewing(isExpanded ? null : team.id)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isExpanded ? 10 : 0 }}>
-                <span style={{ fontSize: 20 }}>{team.icon}</span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'sans-serif' }}>{team.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{team.owner_name} · {rec.wins}-{rec.losses}</div>

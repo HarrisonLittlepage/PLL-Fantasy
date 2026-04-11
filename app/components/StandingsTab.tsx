@@ -26,45 +26,34 @@ export default function StandingsTab({ teams, scores, rosters, settings, schedul
 
   return (
     <div>
-      <div className="section-title">Regular Season Standings — Week {week} of 10</div>
+      <div className="section-title">Standings</div>
 
-      <div className="standings-row" style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--navy-border)', paddingBottom: 6, marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 50px', alignItems: 'center', gap: 6, padding: '7px 8px', color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--navy-border)', paddingBottom: 6, marginBottom: 4 }}>
         <div>#</div>
         <div>Team</div>
         <div style={{ textAlign: 'center' }}>W</div>
         <div style={{ textAlign: 'center' }}>L</div>
         <div style={{ textAlign: 'center' }}>PF</div>
-        <div style={{ textAlign: 'right' }}>Status</div>
       </div>
 
       {rows.map((row, i) => (
         <div key={row.team.id}>
           {i === 4 && <div className="playoff-cut" />}
-          <div className="standings-row" style={row.team.id === teams[0]?.id ? {} : {}}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 50px', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 5, fontFamily: 'sans-serif', fontSize: 12 }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
             <div style={{ color: i < 4 ? 'var(--gold)' : 'var(--muted)', fontSize: 11 }}>{i + 1}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontSize: 15 }}>{row.team.icon}</span>
-              <div>
-                <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{row.team.name}</div>
-                <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{row.team.owner_name}</div>
-              </div>
+            <div>
+              <div style={{ fontSize: 13 }}>{row.team.name}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)' }}>{row.team.owner_name}</div>
             </div>
-            <div style={{ textAlign: 'center', color: 'var(--green)', fontWeight: 600, fontFamily: 'sans-serif' }}>{row.wins}</div>
-            <div style={{ textAlign: 'center', color: 'var(--muted)', fontFamily: 'sans-serif' }}>{row.losses}</div>
-            <div style={{ textAlign: 'center', color: 'var(--gold)', fontFamily: 'sans-serif' }}>{row.points_for}</div>
-            <div style={{ textAlign: 'right' }}>
-              {i < 4
-                ? <span className="pill pill-playoff">Playoff</span>
-                : <span className="pill pill-loss">Out</span>
-              }
-            </div>
+            <div style={{ textAlign: 'center', color: 'var(--green)', fontWeight: 600 }}>{row.wins}</div>
+            <div style={{ textAlign: 'center', color: 'var(--muted)' }}>{row.losses}</div>
+            <div style={{ textAlign: 'center', color: 'var(--gold)' }}>{row.points_for}</div>
           </div>
         </div>
       ))}
-
-      <div style={{ marginTop: 16, fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', padding: '8px 12px', background: 'var(--navy-light)', borderRadius: 6 }}>
-        Top 4 teams advance to playoffs. Tiebreaker: Points For. Bye weeks are excluded from W/L record.
-      </div>
     </div>
   )
 }

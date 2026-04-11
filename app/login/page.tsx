@@ -31,8 +31,8 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo">Cage<span>League</span></div>
-        <div className="auth-sub">PLL Fantasy · Private League</div>
+        <div className="auth-logo">PLL Fantasy<span> App</span></div>
+        <div className="auth-sub">Private League</div>
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <label style={{ display: 'block', fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '1px' }}>Email</label>
