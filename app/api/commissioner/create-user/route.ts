@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!profile?.is_commissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   // 2. Parse request body
-  const { email, password, display_name, team_id } = await req.json()
+  const { email, password, display_name, team_id, is_commissioner } = await req.json()
   if (!email || !password || !display_name) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: createError?.message ?? 'Failed to create user' }, { status: 500 })
   }
 
-  // 4. Update their profile with display name and team assignment
+  // 4. Update their profile with display name, team assignment, and role
   const { error: profileError } = await admin
     .from('profiles')
-    .update({ display_name, team_id: team_id ?? null })
+    .update({ display_name, team_id: team_id ?? null, is_commissioner: is_commissioner ?? false })
     .eq('id', newUser.user.id)
 
   if (profileError) {

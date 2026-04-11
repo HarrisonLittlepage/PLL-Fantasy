@@ -130,6 +130,17 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [teamId, setTeamId] = useState<string>('')
+  const [isCommissioner, setIsCommissioner] = useState(false)
+  const [profiles, setProfiles] = useState<any[]>([])
+  const [loadingProfiles, setLoadingProfiles] = useState(true)
+
+  // Load existing users
+  useState(() => {
+    fetch('/api/commissioner/users')
+      .then(r => r.json())
+      .then(d => { setProfiles(d.users ?? []); setLoadingProfiles(false) })
+      .catch(() => setLoadingProfiles(false))
+  })
 
   async function createUser(e: React.FormEvent) {
     e.preventDefault()
@@ -138,24 +149,44 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
     const res = await fetch('/api/commissioner/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, display_name: displayName, team_id: teamId ? parseInt(teamId) : null }),
+      body: JSON.stringify({
+        email, password, display_name: displayName,
+        team_id: teamId ? parseInt(teamId) : null,
+        is_commissioner: isCommissioner,
+      }),
     })
     const d = await res.json()
     if (res.ok) {
       flash(`Account created for ${displayName}`)
-      setEmail(''); setPassword(''); setDisplayName(''); setTeamId('')
+      setEmail(''); setPassword(''); setDisplayName(''); setTeamId(''); setIsCommissioner(false)
       onRefresh()
+      // Reload profiles
+      fetch('/api/commissioner/users').then(r => r.json()).then(d => setProfiles(d.users ?? []))
     } else {
       flash(d.error ?? 'Error creating user', 'error')
     }
     setSaving(false)
   }
 
+  async function toggleCommissioner(userId: string, current: boolean) {
+    const res = await fetch('/api/commissioner/update-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, is_commissioner: !current }),
+    })
+    if (res.ok) {
+      setProfiles(prev => prev.map(p => p.id === userId ? { ...p, is_commissioner: !current } : p))
+      flash(!current ? 'Commissioner role granted' : 'Commissioner role removed')
+    } else {
+      flash('Error updating role', 'error')
+    }
+  }
+
   return (
     <div>
       <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Create User Account</div>
       <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 16 }}>
-        Create accounts for each league member. Share their email and password directly — they can change their password after signing in.
+        Create accounts for each league member. Share their email and password directly.
       </div>
 
       <form onSubmit={createUser} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
@@ -176,14 +207,59 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
           <select className="input" value={teamId} onChange={e => setTeamId(e.target.value)} style={{ cursor: 'pointer' }}>
             <option value="">— No team yet —</option>
             {teams.map((t: FantasyTeam) => (
-              <option key={t.id} value={t.id}>{t.icon} {t.name} ({t.owner_name})</option>
+              <option key={t.id} value={t.id}>{t.name} ({t.owner_name})</option>
             ))}
           </select>
+        </div>
+        <div className="toggle-row">
+          <div>
+            <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>Commissioner role</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginTop: 2 }}>Can access league settings and enter scores</div>
+          </div>
+          <label className="toggle">
+            <input type="checkbox" checked={isCommissioner} onChange={e => setIsCommissioner(e.target.checked)} />
+            <span className="toggle-slider" />
+          </label>
         </div>
         <button className="btn btn-comm" type="submit" disabled={saving} style={{ marginTop: 4 }}>
           {saving ? 'Creating...' : 'Create Account'}
         </button>
       </form>
+
+      {/* Existing users */}
+      <div style={{ marginTop: 28 }}>
+        <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Manage Existing Users</div>
+        {loadingProfiles && <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Loading...</div>}
+        {profiles.map(p => {
+          const team = teams.find((t: FantasyTeam) => t.id === p.team_id)
+          return (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--navy-light)', borderRadius: 6, marginBottom: 6, border: '1px solid var(--navy-border)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.display_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
+                  {p.email} · {team ? team.name : 'No team'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {p.is_commissioner && (
+                  <span className="pill pill-comm">Commissioner</span>
+                )}
+                <label className="toggle" title={p.is_commissioner ? 'Remove commissioner role' : 'Grant commissioner role'}>
+                  <input
+                    type="checkbox"
+                    checked={!!p.is_commissioner}
+                    onChange={() => toggleCommissioner(p.id, !!p.is_commissioner)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+            </div>
+          )
+        })}
+        {!loadingProfiles && profiles.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>No users yet.</div>
+        )}
+      </div>
     </div>
   )
 }
