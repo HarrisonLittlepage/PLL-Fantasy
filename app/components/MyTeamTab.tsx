@@ -1,6 +1,7 @@
 'use client'
 // app/components/MyTeamTab.tsx
 
+import { apiFetch } from '../lib/api-fetch'
 import { useState, useMemo } from 'react'
 import type { Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam } from '../types'
 import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
@@ -144,7 +145,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       slot_index: parseInt(slotIndex), player_id,
     }))
 
-    const res = await fetch('/api/roster/update-batch', {
+    const res = await apiFetch('/api/roster/update-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots }),
@@ -163,7 +164,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   }
 
   async function saveGamePick(choice: 'A' | 'B') {
-    await fetch('/api/roster/game-pick', {
+    await apiFetch('/api/roster/game-pick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ week, game_choice: choice }),
@@ -174,7 +175,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   async function saveTeamName() {
     if (!nameInput.trim()) return
     setNameSaving(true)
-    const res = await fetch('/api/roster/update-team-name', {
+    const res = await apiFetch('/api/roster/update-team-name', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ team_id: myTeamId, name: nameInput.trim() }),

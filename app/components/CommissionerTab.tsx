@@ -1,6 +1,7 @@
 'use client'
 // app/components/CommissionerTab.tsx
 
+import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
 import { getPlayoffSeeds } from '../lib/scoring'
@@ -62,7 +63,7 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
 
   async function updateSettings(patch: Partial<{ current_week: number; bye_scoring_mode: string }>) {
     setSaving(true)
-    const res = await fetch('/api/commissioner/settings', {
+    const res = await apiFetch('/api/commissioner/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -146,7 +147,7 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
     e.preventDefault()
     if (!email || !password || !displayName) { flash('All fields required', 'error'); return }
     setSaving(true)
-    const res = await fetch('/api/commissioner/create-user', {
+    const res = await apiFetch('/api/commissioner/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -169,7 +170,7 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
   }
 
   async function toggleCommissioner(userId: string, current: boolean) {
-    const res = await fetch('/api/commissioner/update-role', {
+    const res = await apiFetch('/api/commissioner/update-role', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, is_commissioner: !current }),
@@ -292,7 +293,7 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
     })
     if (payload.length === 0) { flash('No changes to save', 'error'); setSaving(false); return }
 
-    const res = await fetch('/api/commissioner/scores', {
+    const res = await apiFetch('/api/commissioner/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scores: payload }),

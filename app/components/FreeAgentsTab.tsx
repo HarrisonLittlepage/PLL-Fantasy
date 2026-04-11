@@ -4,6 +4,7 @@
 // Position eligibility: bench accepts all positions, so no position gating here.
 // Full roster (14/14) blocks adding.
 
+import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
 
@@ -61,7 +62,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
     }
 
     setSaving(true)
-    const res = await fetch('/api/roster/update-batch', {
+    const res = await apiFetch('/api/roster/update-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots: [{ slot_index: benchSlot, player_id: player.id }] }),
