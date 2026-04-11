@@ -2,7 +2,7 @@
 // Team owner saves their game A/B pick for a double-header week
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient(req)

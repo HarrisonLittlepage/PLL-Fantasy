@@ -2,7 +2,7 @@
 // Commissioner-only: update league settings (current week, bye scoring mode)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const browser = createSupabaseServerClient(req)

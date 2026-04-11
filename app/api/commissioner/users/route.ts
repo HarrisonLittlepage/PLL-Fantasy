@@ -2,7 +2,7 @@
 // Commissioner-only: fetch all profiles to display in the user management panel
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function GET(req: NextRequest) {
   const browser = createSupabaseServerClient(req)

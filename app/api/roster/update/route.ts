@@ -2,7 +2,7 @@
 // Team owners update their own roster (swap players, add free agents)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient(req)

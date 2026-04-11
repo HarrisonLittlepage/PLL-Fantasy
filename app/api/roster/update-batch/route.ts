@@ -3,7 +3,7 @@
 // and ownership server-side so client-side checks can't be bypassed.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase-server'
 
 const SLOT_POSITIONS = [
   'A','A','M','M','D','D','FO','G','FLEX','FLEX','BN','BN','BN','BN'

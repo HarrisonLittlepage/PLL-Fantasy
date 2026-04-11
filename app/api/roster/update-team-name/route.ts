@@ -2,7 +2,7 @@
 // Team owners can rename only their own team
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient(req)

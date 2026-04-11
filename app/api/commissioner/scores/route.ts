@@ -2,7 +2,7 @@
 // Commissioner-only: enter or update player scores for a week
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const browser = createSupabaseServerClient(req)
