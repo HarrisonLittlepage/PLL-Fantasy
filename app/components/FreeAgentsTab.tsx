@@ -1,5 +1,8 @@
 'use client'
 // app/components/FreeAgentsTab.tsx
+// Browse all free agents, add them to your bench.
+// Position eligibility: bench accepts all positions, so no position gating here.
+// Full roster (14/14) blocks adding.
 
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
@@ -20,47 +23,79 @@ interface Props {
 export default function FreeAgentsTab({ myTeamId, players, scores, rosters, settings, onRefresh }: Props) {
   const [filter, setFilter] = useState('ALL')
   const [search, setSearch] = useState('')
-  const [msg, setMsg] = useState('')
+  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [saving, setSaving] = useState(false)
 
   const week = settings.current_week
-  const ownedIds = new Set(rosters.map(r => r.player_id).filter(Boolean))
+  const allOwnedIds = new Set(rosters.map(r => r.player_id).filter(Boolean))
   const myRoster = rosters.filter(r => r.team_id === myTeamId)
+  const myRosterCount = myRoster.filter(r => r.player_id !== null).length
+  const isFull = myRosterCount >= 14
 
   const freeAgents = players.filter(p =>
-    !ownedIds.has(p.id) &&
+    !allOwnedIds.has(p.id) &&
     (filter === 'ALL' || p.position === filter) &&
     (search === '' || p.name.toLowerCase().includes(search.toLowerCase()))
   ).sort((a, b) => b.avg_pts - a.avg_pts)
 
+  function showMsg(text: string, type: 'success' | 'error') {
+    setMsg({ text, type })
+    setTimeout(() => setMsg(null), 4000)
+  }
+
   async function addPlayer(player: Player) {
-    const benchSlot = [10, 11, 12, 13].find(i => !myRoster.find(r => r.slot_index === i)?.player_id)
-    if (benchSlot === undefined) {
-      setMsg('Bench is full — drop a player from My Team first')
-      setTimeout(() => setMsg(''), 4000)
+    if (isFull) {
+      showMsg('Roster is full (14/14) — drop a player before adding', 'error')
       return
     }
+
+    // Find first open bench slot
+    const benchSlot = [10, 11, 12, 13].find(i => {
+      const slot = myRoster.find(r => r.slot_index === i)
+      return !slot || slot.player_id === null
+    })
+
+    if (benchSlot === undefined) {
+      showMsg('Bench is full — move a bench player to a starter slot first', 'error')
+      return
+    }
+
     setSaving(true)
-    const res = await fetch('/api/roster/update', {
+    const res = await fetch('/api/roster/update-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slot_index: benchSlot, player_id: player.id }),
+      body: JSON.stringify({ slots: [{ slot_index: benchSlot, player_id: player.id }] }),
     })
+
     if (res.ok) {
-      onRefresh()
-      setMsg(player.name + ' added to bench')
-      setTimeout(() => setMsg(''), 3000)
+      await onRefresh()
+      showMsg(`${player.name} added to bench`, 'success')
     } else {
       const d = await res.json()
-      setMsg(d.error ?? 'Error adding player')
+      showMsg(d.error ?? 'Error adding player', 'error')
     }
     setSaving(false)
   }
 
-  const weekPts = (p: Player) => scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? '—'
+  const weekPts = (p: Player) =>
+    scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
 
   return (
     <div>
+      {/* Roster status */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '8px 12px', background: 'var(--navy-light)', borderRadius: 7, border: '1px solid var(--navy-border)' }}>
+        <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>
+          Roster: <strong style={{ color: isFull ? '#e06060' : 'var(--green)' }}>{myRosterCount}/14</strong>
+        </div>
+        {isFull && (
+          <div style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Full — drop a player to add someone new</div>
+        )}
+        {!isFull && (
+          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Players are added to your bench. Move them to starter slots from My Team.</div>
+        )}
+      </div>
+
+      {/* Search + filter */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           className="input"
@@ -76,31 +111,44 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
         </div>
       </div>
 
+      {/* Feedback */}
       {msg && (
-        <div style={{ padding: '7px 12px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 5, fontSize: 12, color: 'var(--green)', marginBottom: 10, fontFamily: 'sans-serif' }}>
-          {msg}
+        <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 10, background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a', border: `1px solid ${msg.type === 'error' ? 'var(--red)' : 'var(--green)'}`, color: msg.type === 'error' ? '#e06060' : 'var(--green)' }}>
+          {msg.text}
         </div>
       )}
 
       <div className="section-title">{freeAgents.length} available</div>
 
-      {freeAgents.map(p => (
-        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 5, transition: 'background .1s' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-        >
-          <span className={`pos pos-${p.position}`}>{p.position}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>
+      {freeAgents.map(p => {
+        const pts = weekPts(p)
+        return (
+          <div
+            key={p.id}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 5, transition: 'background .1s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span className={`pos pos-${p.position}`}>{p.position}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>
+            </div>
+            <div style={{ textAlign: 'right', minWidth: 54, fontFamily: 'sans-serif', fontSize: 11 }}>
+              {pts != null && <div style={{ color: 'var(--gold)' }}>{pts} pts</div>}
+              <div style={{ color: 'var(--muted)', fontSize: 10 }}>avg {p.avg_pts}</div>
+            </div>
+            <button
+              className="btn btn-sm btn-success"
+              disabled={saving || isFull}
+              onClick={() => addPlayer(p)}
+              style={isFull ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            >
+              Add
+            </button>
           </div>
-          <div style={{ textAlign: 'right', minWidth: 60, fontFamily: 'sans-serif', fontSize: 12 }}>
-            <div style={{ color: 'var(--gold)' }}>{weekPts(p)} pts</div>
-            <div style={{ color: 'var(--muted)', fontSize: 10 }}>avg {p.avg_pts}</div>
-          </div>
-          <button className="btn btn-sm btn-success" disabled={saving} onClick={() => addPlayer(p)}>Add</button>
-        </div>
-      ))}
+        )
+      })}
 
       {freeAgents.length === 0 && (
         <div style={{ color: 'var(--muted)', fontSize: 13, fontFamily: 'sans-serif', padding: '20px 0', textAlign: 'center' }}>
