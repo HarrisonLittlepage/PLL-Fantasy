@@ -2,10 +2,10 @@
 // Commissioner-only: enter or update player scores for a week
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseBrowserClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
 
 export async function POST(req: NextRequest) {
-  const browser = createSupabaseBrowserClient()
+  const browser = createSupabaseServerClient(req)
   const { data: { user } } = await browser.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 

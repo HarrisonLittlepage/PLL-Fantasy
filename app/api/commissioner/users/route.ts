@@ -2,10 +2,10 @@
 // Commissioner-only: fetch all profiles to display in the user management panel
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseBrowserClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
 
 export async function GET(req: NextRequest) {
-  const browser = createSupabaseBrowserClient()
+  const browser = createSupabaseServerClient(req)
   const { data: { user } } = await browser.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 

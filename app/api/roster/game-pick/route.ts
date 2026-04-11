@@ -2,10 +2,10 @@
 // Team owner saves their game A/B pick for a double-header week
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseBrowserClient } from '../../../lib/supabase'
+import { createSupabaseServerClient } from '../../../lib/supabase'
 
 export async function POST(req: NextRequest) {
-  const supabase = createSupabaseBrowserClient()
+  const supabase = createSupabaseServerClient(req)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 

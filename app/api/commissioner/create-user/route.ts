@@ -3,11 +3,11 @@
 // Uses the service role key so it can bypass RLS and create auth users.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdminClient, createSupabaseBrowserClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
 
 export async function POST(req: NextRequest) {
   // 1. Verify the caller is a logged-in commissioner
-  const browser = createSupabaseBrowserClient()
+  const browser = createSupabaseServerClient(req)
   const { data: { user } } = await browser.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 

@@ -3,7 +3,7 @@
 // and ownership server-side so client-side checks can't be bypassed.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseBrowserClient, createSupabaseAdminClient } from '../../../lib/supabase'
+import { createSupabaseAdminClient, createSupabaseServerClient } from '../../../lib/supabase'
 
 const SLOT_POSITIONS = [
   'A','A','M','M','D','D','FO','G','FLEX','FLEX','BN','BN','BN','BN'
@@ -20,7 +20,7 @@ const ELIGIBLE_POSITIONS: Record<string, string[]> = {
 }
 
 export async function POST(req: NextRequest) {
-  const browser = createSupabaseBrowserClient()
+  const browser = createSupabaseServerClient(req)
 
   // 1. Auth check
   const { data: { user } } = await browser.auth.getUser()
