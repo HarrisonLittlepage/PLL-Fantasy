@@ -2,9 +2,9 @@
 // app/components/MyTeamTab.tsx
 
 import { apiFetch } from '../lib/api-fetch'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import type { Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam } from '../types'
-import { SLOT_LABELS } from '../types'
+import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
 interface Props {
@@ -20,9 +20,16 @@ interface Props {
   onRefresh: () => void
 }
 
+function canFitInSlot(player: Player, slotIndex: number): boolean {
+  const slotPos = SLOT_POSITIONS[slotIndex]
+  return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
+}
+
 export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, gamePicks, onRefresh }: Props) {
   const [dropMode, setDropMode] = useState(false)
-  const [dropping, setDropping] = useState<Set<number>>(new Set()) // slot indices marked for drop
+  const [dropping, setDropping] = useState<Set<number>>(new Set())
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [pending, setPending] = useState<Record<number, number | null>>({})
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
   const [editingName, setEditingName] = useState(false)
@@ -36,19 +43,79 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const isByeTeam = wkData?.bye_team_id === myTeamId
   const myTeam = teams.find(t => t.id === myTeamId)
 
-  const myRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
+  const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
   const myPick = gamePicks.find(gp => gp.team_id === myTeamId && gp.week === week)?.game_choice ?? 'A'
   const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, !!isDoubleTeam, byeMode, myPick)
   const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, schedule, [], byeMode, gamePicks)
 
   function getPlayerAtSlot(i: number): Player | null {
-    const slot = myRoster.find(r => r.slot_index === i)
-    return slot?.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
+    const playerId = i in pending
+      ? pending[i]
+      : savedRoster.find(r => r.slot_index === i)?.player_id ?? null
+    return playerId ? players.find(p => p.id === playerId) ?? null : null
   }
 
   function showMsg(text: string, type: 'error' | 'success') {
     setMsg({ text, type })
     setTimeout(() => setMsg(null), 4000)
+  }
+
+  function handleSlotTap(slotIndex: number) {
+    if (dropMode) return
+
+    if (selectedSlot === slotIndex) {
+      setSelectedSlot(null)
+      return
+    }
+
+    if (selectedSlot === null) {
+      if (getPlayerAtSlot(slotIndex)) setSelectedSlot(slotIndex)
+      return
+    }
+
+    const fromPlayer = getPlayerAtSlot(selectedSlot)!
+    const toPlayer = getPlayerAtSlot(slotIndex)
+
+    if (!canFitInSlot(fromPlayer, slotIndex)) {
+      showMsg(`${fromPlayer.name} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
+      setSelectedSlot(null)
+      return
+    }
+    if (toPlayer && !canFitInSlot(toPlayer, selectedSlot)) {
+      showMsg(`${toPlayer.name} (${toPlayer.position}) can't play ${SLOT_LABELS[selectedSlot]}`, 'error')
+      setSelectedSlot(null)
+      return
+    }
+
+    setPending(prev => ({
+      ...prev,
+      [selectedSlot]: toPlayer?.id ?? null,
+      [slotIndex]: fromPlayer.id,
+    }))
+    setSelectedSlot(null)
+  }
+
+  async function saveSwaps() {
+    if (Object.keys(pending).length === 0) return
+    setSaving(true)
+    const slots = Object.entries(pending).map(([slotIndex, player_id]) => ({
+      slot_index: parseInt(slotIndex), player_id,
+    }))
+    const res = await apiFetch('/api/roster/update-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slots }),
+    })
+    if (res.ok) {
+      setPending({})
+      setSelectedSlot(null)
+      await onRefresh()
+      showMsg('Lineup saved', 'success')
+    } else {
+      const d = await res.json()
+      showMsg(d.error ?? 'Error saving', 'error')
+    }
+    setSaving(false)
   }
 
   function toggleDrop(slotIndex: number) {
@@ -66,23 +133,14 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   }
 
   async function saveDrops() {
-    if (dropping.size === 0) {
-      showMsg('No players selected to drop', 'error')
-      return
-    }
-
+    if (dropping.size === 0) { showMsg('No players selected to drop', 'error'); return }
     setSaving(true)
-    const slots = Array.from(dropping).map(slotIndex => ({
-      slot_index: slotIndex,
-      player_id: null,
-    }))
-
+    const slots = Array.from(dropping).map(slotIndex => ({ slot_index: slotIndex, player_id: null }))
     const res = await apiFetch('/api/roster/update-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots }),
     })
-
     if (res.ok) {
       setDropMode(false)
       setDropping(new Set())
@@ -120,6 +178,67 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const weekPts = (p: Player) =>
     scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
 
+  const hasPendingSwaps = Object.keys(pending).length > 0
+
+  const slotRow = (i: number) => {
+    const player = getPlayerAtSlot(i)
+    const isSelected = selectedSlot === i
+    const isPending = i in pending
+    const isMarkedDrop = dropMode && dropping.has(i)
+    const pts = player ? weekPts(player) : null
+
+    let borderColor = 'var(--navy-border)'
+    let bg: string | undefined
+    if (isMarkedDrop) { borderColor = 'var(--red)'; bg = '#1a0808' }
+    else if (isSelected) { borderColor = 'var(--gold)'; bg = '#1a1a08' }
+    else if (isPending) borderColor = 'var(--gold-dark)'
+
+    return (
+      <div
+        key={i}
+        className="roster-slot"
+        style={{ border: `1px solid ${borderColor}`, background: bg, cursor: !dropMode ? 'pointer' : undefined }}
+        onClick={() => handleSlotTap(i)}
+      >
+        <div>
+          <div className="slot-label">{SLOT_LABELS[i]}</div>
+          {player && !isMarkedDrop && <span className={`pos pos-${player.position}`}>{player.position}</span>}
+        </div>
+        <div>
+          {player ? (
+            <div>
+              <div style={{ fontSize: 12, fontFamily: 'sans-serif', textDecoration: isMarkedDrop ? 'line-through' : undefined, color: isMarkedDrop ? '#e06060' : isSelected ? 'var(--gold)' : undefined }}>
+                {player.name}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
+            </div>
+          ) : (
+            <div className="slot-empty">{isSelected ? '← select destination' : 'Empty'}</div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+          {pts != null && !isMarkedDrop && (
+            <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{pts}</span>
+          )}
+          {isPending && !isMarkedDrop && (
+            <span style={{ fontSize: 9, color: 'var(--gold-dark)', fontFamily: 'sans-serif', letterSpacing: '.5px' }}>MOVED</span>
+          )}
+          {dropMode && player && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={dropping.has(i)}
+                onChange={() => toggleDrop(i)}
+                style={{ accentColor: '#e06060', width: 15, height: 15, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Drop</span>
+            </label>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {/* Team name */}
@@ -130,17 +249,13 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') setEditingName(false) }}
               autoFocus />
-            <button className="btn btn-sm btn-gold" onClick={saveTeamName} disabled={nameSaving}>
-              {nameSaving ? 'Saving...' : 'Save'}
-            </button>
+            <button className="btn btn-sm btn-gold" onClick={saveTeamName} disabled={nameSaving}>{nameSaving ? 'Saving...' : 'Save'}</button>
             <button className="btn btn-sm btn-outline" onClick={() => setEditingName(false)}>Cancel</button>
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{myTeam?.name}</div>
-            <button className="btn btn-sm btn-outline" onClick={() => { setNameInput(myTeam?.name ?? ''); setEditingName(true) }}>
-              Rename
-            </button>
+            <button className="btn btn-sm btn-outline" onClick={() => { setNameInput(myTeam?.name ?? ''); setEditingName(true) }}>Rename</button>
           </div>
         )}
       </div>
@@ -160,9 +275,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       )}
       {isDoubleTeam && byeMode === 'pick' && (
         <div style={{ padding: '12px 14px', background: '#1a0f2a', border: '1px solid #4a2060', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: '#b06ade', fontFamily: 'sans-serif', fontWeight: 600, marginBottom: 8 }}>
-            Double-header — pick which game counts
-          </div>
+          <div style={{ fontSize: 12, color: '#b06ade', fontFamily: 'sans-serif', fontWeight: 600, marginBottom: 8 }}>Double-header — pick which game counts</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className={`btn ${myPick === 'A' ? 'btn-gold' : 'btn-outline'}`} onClick={() => saveGamePick('A')}>Game A</button>
             <button className={`btn ${myPick === 'B' ? 'btn-gold' : 'btn-outline'}`} onClick={() => saveGamePick('B')}>Game B</button>
@@ -182,28 +295,33 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       )}
 
-      {/* Drop mode bar */}
+      {/* Action bar */}
       {dropMode ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 7, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontFamily: 'sans-serif', color: '#e06060' }}>
-            {dropping.size > 0
-              ? `${dropping.size} player${dropping.size !== 1 ? 's' : ''} selected to drop`
-              : 'Check players to release them'}
+            {dropping.size > 0 ? `${dropping.size} player${dropping.size !== 1 ? 's' : ''} selected` : 'Check players to release'}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-sm btn-outline" onClick={cancelDropMode} disabled={saving}>Cancel</button>
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={saveDrops}
-              disabled={saving || dropping.size === 0}
-            >
-              {saving ? 'Saving...' : `Drop ${dropping.size > 0 ? `(${dropping.size})` : ''}`}
+            <button className="btn btn-sm btn-danger" onClick={saveDrops} disabled={saving || dropping.size === 0}>
+              {saving ? 'Saving...' : `Drop${dropping.size > 0 ? ` (${dropping.size})` : ''}`}
             </button>
           </div>
         </div>
+      ) : hasPendingSwaps ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#1a1a08', border: '1px solid var(--gold-dark)', borderRadius: 7, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--gold)', fontFamily: 'sans-serif' }}>
+            {Math.floor(Object.keys(pending).length / 2)} swap{Math.floor(Object.keys(pending).length / 2) !== 1 ? 's' : ''} pending
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm btn-outline" onClick={() => { setPending({}); setSelectedSlot(null) }} disabled={saving}>Discard</button>
+            <button className="btn btn-sm btn-gold" onClick={saveSwaps} disabled={saving}>{saving ? 'Saving...' : 'Save Lineup'}</button>
+          </div>
+        </div>
       ) : (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-          <button className="btn btn-sm btn-danger" onClick={() => setDropMode(true)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Tap a player then tap destination to swap</div>
+          <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>
             Drop Players
           </button>
         </div>
@@ -213,114 +331,9 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       <div>
         <div className="section-title">Roster</div>
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>
-        {Array.from({ length: 10 }, (_, i) => {
-          const player = getPlayerAtSlot(i)
-          const isMarkedDrop = dropMode && dropping.has(i)
-          const pts = player ? weekPts(player) : null
-
-          return (
-            <div
-              key={i}
-              className="roster-slot"
-              style={{
-                border: isMarkedDrop ? '1px solid var(--red)' : '1px solid var(--navy-border)',
-                background: isMarkedDrop ? '#1a0808' : undefined,
-              }}
-            >
-              <div>
-                <div className="slot-label">{SLOT_LABELS[i]}</div>
-                {player && <span className={`pos pos-${player.position}`}>{player.position}</span>}
-              </div>
-              <div>
-                {player ? (
-                  <div>
-                    <div style={{ fontSize: 12, fontFamily: 'sans-serif', textDecoration: isMarkedDrop ? 'line-through' : undefined, color: isMarkedDrop ? '#e06060' : undefined }}>
-                      {player.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
-                  </div>
-                ) : (
-                  <div className="slot-empty">Empty</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                {pts != null && !isMarkedDrop && (
-                  <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{pts}</span>
-                )}
-                {dropMode && player && (
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={dropping.has(i)}
-                      onChange={() => toggleDrop(i)}
-                      style={{ accentColor: '#e06060', width: 15, height: 15, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Drop</span>
-                  </label>
-                )}
-              </div>
-            </div>
-          )
-        })}
-
+        {Array.from({ length: 10 }, (_, i) => slotRow(i))}
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 14, marginBottom: 6 }}>Bench</div>
-        {Array.from({ length: 4 }, (_, i) => {
-          const slotIndex = 10 + i
-          const player = getPlayerAtSlot(slotIndex)
-          const isMarkedDrop = dropMode && dropping.has(slotIndex)
-          const pts = player ? weekPts(player) : null
-
-          return (
-            <div
-              key={slotIndex}
-              className="roster-slot"
-              style={{
-                opacity: 0.85,
-                border: isMarkedDrop ? '1px solid var(--red)' : '1px solid var(--navy-border)',
-                background: isMarkedDrop ? '#1a0808' : undefined,
-              }}
-            >
-              <div>
-                <div className="slot-label">{SLOT_LABELS[slotIndex]}</div>
-                {player && <span className={`pos pos-${player.position}`}>{player.position}</span>}
-              </div>
-              <div>
-                {player ? (
-                  <div>
-                    <div style={{ fontSize: 12, fontFamily: 'sans-serif', textDecoration: isMarkedDrop ? 'line-through' : undefined, color: isMarkedDrop ? '#e06060' : undefined }}>
-                      {player.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
-                  </div>
-                ) : (
-                  <div className="slot-empty">Empty</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                {pts != null && !isMarkedDrop && (
-                  <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{pts}</span>
-                )}
-                {dropMode && player && (
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={dropping.has(slotIndex)}
-                      onChange={() => toggleDrop(slotIndex)}
-                      style={{ accentColor: '#e06060', width: 15, height: 15, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Drop</span>
-                  </label>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {Array.from({ length: 4 }, (_, i) => slotRow(10 + i))}
       </div>
     </div>
   )
