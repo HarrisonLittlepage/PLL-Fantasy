@@ -1,6 +1,6 @@
 // app/types/index.ts
 
-export type Position = 'A' | 'M' | 'D' | 'SSDM' | 'FO' | 'G'
+export type Position = 'A' | 'M' | 'D' | 'SSDM' | 'LSM' | 'FO' | 'G'
 export type ByeMode = 'avg' | 'pick'
 export type GameChoice = 'A' | 'B'
 
@@ -67,16 +67,11 @@ export interface GamePick {
   game_choice: GameChoice
 }
 
-// Computed types used in the UI
 export interface TeamRecord {
   team: FantasyTeam
   wins: number
   losses: number
   points_for: number
-}
-
-export interface RosterWithPlayers {
-  slots: Array<{ slot_index: number; player: Player | null }>
 }
 
 export const SLOT_LABELS = [
@@ -90,11 +85,11 @@ export const SLOT_POSITIONS = [
 ]
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
-  A: ['A'],
-  M: ['M', 'SSDM'],
-  D: ['D', 'SSDM'],
-  FO: ['FO'],
-  G: ['G'],
-  FLEX: ['A', 'M', 'D', 'SSDM', 'FO'],
-  BN: ['A', 'M', 'D', 'SSDM', 'FO', 'G'],
+  A:    ['A'],
+  M:    ['M', 'SSDM'],
+  D:    ['D', 'SSDM', 'LSM'],
+  FO:   ['FO'],
+  G:    ['G'],
+  FLEX: ['A', 'M', 'D', 'SSDM', 'LSM', 'FO'],
+  BN:   ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'],
 }
