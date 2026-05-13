@@ -4,8 +4,8 @@ import { createSupabaseAdminClient, getUserFromRequest } from '../../../lib/supa
 
 const SLOT_POSITIONS = ['A','A','M','M','D','D','FO','G','FLEX','FLEX','BN','BN','BN','BN']
 const ELIGIBLE: Record<string, string[]> = {
-  A:['A'], M:['M','SSDM'], D:['D','SSDM'], FO:['FO'], G:['G'],
-  FLEX:['A','M','D','SSDM','FO'], BN:['A','M','D','SSDM','FO','G'],
+  A:['A'], M:['M','SSDM'], D:['D','SSDM','LSM'], FO:['FO'], G:['G'],
+  FLEX:['A','M','D','SSDM','FO', 'LSM'], BN:['A','M','D','SSDM','FO','G','LSM'],
 }
 
 export async function POST(req: NextRequest) {
