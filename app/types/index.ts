@@ -88,13 +88,13 @@ export interface TeamRecord {
 }
 
 export const SLOT_LABELS = [
-  'Attack', 'Attack', 'Midfield', 'Midfield',
-  'Defense', 'Defense', 'Faceoff', 'Goalie',
+  'Faceoff', 'Attack', 'Attack', 'Midfield', 'Midfield',
+  'Defense', 'Defense', 'Goalie',
   'Flex', 'Flex', 'Bench', 'Bench', 'Bench', 'Bench'
 ]
 
 export const SLOT_POSITIONS = [
-  'A', 'A', 'M', 'M', 'D', 'D', 'FO', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
+  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
 ]
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
