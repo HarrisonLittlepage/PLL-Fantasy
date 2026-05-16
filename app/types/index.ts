@@ -52,7 +52,6 @@ export interface LeagueSettings {
   bye_scoring_mode: ByeMode
   season_year: number
   locked_pll_teams: string[]
-  locked_pll_teams: string[]
 }
 
 export interface WeekSchedule {
