@@ -51,6 +51,8 @@ export interface LeagueSettings {
   current_week: number
   bye_scoring_mode: ByeMode
   season_year: number
+  locked_pll_teams: string[]
+  locked_pll_teams: string[]
 }
 
 export interface WeekSchedule {
@@ -105,3 +107,5 @@ export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
   FLEX: ['A', 'M', 'D', 'SSDM', 'LSM', 'FO'],
   BN:   ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'],
 }
+
+export const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']

@@ -4,7 +4,6 @@
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
-import { getPlayoffSeeds } from '../lib/scoring'
 
 const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
 
@@ -105,12 +104,11 @@ function CompleteWeekButton({ week, saving, setSaving, flash, onRefresh }: any) 
 }
 
 // ── SETTINGS VIEW ─────────────────────────────────────────────────────────────
-function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks, teams, players, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
-  const seeds = getPlayoffSeeds(teams, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
+function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
   const [dhWeek, setDhWeek] = useState(settings.current_week)
   const [dhTeam, setDhTeam] = useState(PLL_TEAMS[0])
 
-  async function updateSettings(patch: Partial<{ current_week: number; bye_scoring_mode: string }>) {
+  async function updateSettings(patch: Partial<{ current_week: number }>) {
     setSaving(true)
     const res = await apiFetch('/api/commissioner/settings', {
       method: 'POST',
@@ -119,6 +117,34 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
     })
     if (res.ok) { onRefresh(); flash('Settings saved') }
     else { const d = await res.json(); flash(d.error ?? 'Error saving', 'error') }
+    setSaving(false)
+  }
+
+  async function toggleTeamLock(team: string, currentlyLocked: boolean) {
+    const current: string[] = settings.locked_pll_teams ?? []
+    const updated = currentlyLocked
+      ? current.filter(t => t !== team)
+      : [...current, team]
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/roster-lock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked_pll_teams: updated }),
+    })
+    if (res.ok) { onRefresh(); flash(`${team} ${currentlyLocked ? 'unlocked' : 'locked'}`) }
+    else { const d = await res.json(); flash(d.error ?? 'Error updating lock', 'error') }
+    setSaving(false)
+  }
+
+  async function unlockAll() {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/roster-lock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked_pll_teams: [] }),
+    })
+    if (res.ok) { onRefresh(); flash('All teams unlocked') }
+    else { flash('Error unlocking', 'error') }
     setSaving(false)
   }
 
@@ -146,10 +172,13 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
     setSaving(false)
   }
 
+  const lockedTeams: string[] = settings.locked_pll_teams ?? []
+
   return (
     <div>
       <div className="section-title" style={{ color: 'var(--comm-purple)' }}>League Settings</div>
 
+      {/* Current week */}
       <div className="toggle-row">
         <div>
           <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>Current week</div>
@@ -165,13 +194,51 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
         </div>
       </div>
 
+      {/* Roster locks */}
+      <div style={{ marginTop: 20 }}>
+        <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Roster Locks</div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 12 }}>
+          Lock PLL teams during live games. Players on locked teams cannot be added, dropped, or swapped by anyone.
+        </div>
+        {lockedTeams.length > 0 && (
+          <div style={{ padding: '6px 10px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 5, fontSize: 11, color: '#e06060', fontFamily: 'sans-serif', marginBottom: 10 }}>
+            🔒 {lockedTeams.length} team{lockedTeams.length !== 1 ? 's' : ''} locked: {lockedTeams.join(', ')}
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {PLL_TEAMS.map(team => {
+            const isLocked = lockedTeams.includes(team)
+            return (
+              <div key={team} className="toggle-row" style={{ padding: '8px 12px' }}>
+                <div style={{ fontSize: 13, fontFamily: 'sans-serif', color: isLocked ? '#e06060' : 'var(--text)' }}>
+                  {isLocked ? '🔒 ' : ''}{team}
+                </div>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={isLocked}
+                    disabled={saving}
+                    onChange={() => toggleTeamLock(team, isLocked)}
+                  />
+                  <span className="toggle-slider" style={isLocked ? { background: '#3a1a1a', borderColor: 'var(--red)' } : {}} />
+                </label>
+              </div>
+            )
+          })}
+        </div>
+        {lockedTeams.length > 0 && (
+          <button className="btn btn-sm btn-outline" style={{ marginTop: 10, fontSize: 11 }} onClick={unlockAll} disabled={saving}>
+            Unlock All Teams
+          </button>
+        )}
+      </div>
+
       {/* Double-header management */}
       <div style={{ marginTop: 20 }}>
         <div className="section-title" style={{ color: 'var(--comm-purple)' }}>PLL Double-Header Weeks</div>
         <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 12 }}>
           Mark which PLL teams play two games in a given week. Their players' scores will be averaged automatically.
         </div>
-
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
           <div>
             <label style={{ display: 'block', fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '1px' }}>Week</label>
@@ -193,8 +260,6 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
             </button>
           </div>
         </div>
-
-        {/* Existing double headers */}
         {pllDoubleHeaders.length > 0 ? (
           <div>
             {pllDoubleHeaders
@@ -226,18 +291,6 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
           <CompleteWeekButton week={settings.current_week} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />
         </div>
       )}
-
-      {/* Playoff picture */}
-      <div style={{ marginTop: 20 }}>
-        <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Current Playoff Picture</div>
-        {seeds.map((s: any, i: number) => (
-          <div key={s.team.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--navy-light)', borderRadius: 6, marginBottom: 6, border: '1px solid var(--navy-border)' }}>
-            <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', minWidth: 16 }}>#{i + 1}</span>
-            <div style={{ flex: 1, fontFamily: 'sans-serif', fontSize: 13 }}>{s.team.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{s.wins}-{s.losses} · {s.points_for} PF</div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
@@ -371,8 +424,6 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
   const [selectedWeek, setSelectedWeek] = useState(settings.current_week)
   const [localScores, setLocalScores] = useState<Record<string, number>>({})
 
-  const isDoubleHeaderWeek = pllDoubleHeaders.some((dh: PllDoubleHeader) => dh.week === selectedWeek)
-
   function getScore(playerId: number, game: string) {
     const key = `${playerId}-${game}`
     if (key in localScores) return localScores[key]
@@ -391,7 +442,6 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
       return { player_id: parseInt(playerId), week: selectedWeek, game, points }
     })
     if (payload.length === 0) { flash('No changes to save', 'error'); setSaving(false); return }
-
     const res = await apiFetch('/api/commissioner/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -403,13 +453,12 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
     setSaving(false)
   }
 
-  const positions = ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G']
-
-  // For double-header weeks, show game A and B columns for teams with double headers
   function gamesForPlayer(p: Player): string[] {
     const hasDoubleHeader = pllDoubleHeaders.some((dh: PllDoubleHeader) => dh.week === selectedWeek && dh.pll_team === p.pll_team)
     return hasDoubleHeader ? ['A', 'B'] : ['A']
   }
+
+  const positions = ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G']
 
   return (
     <div>
@@ -423,24 +472,16 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
             ))}
           </select>
           <button className="btn btn-sm btn-comm" disabled={saving || Object.keys(localScores).length === 0} onClick={saveScores}>
-            {saving ? 'Saving...' : `Save ${Object.keys(localScores).length > 0 ? `(${Object.keys(localScores).length})` : ''}`}
+            {saving ? 'Saving...' : `Save${Object.keys(localScores).length > 0 ? ` (${Object.keys(localScores).length})` : ''}`}
           </button>
         </div>
       </div>
-
-      {isDoubleHeaderWeek && (
-        <div style={{ padding: '6px 10px', background: '#1a0f2a', border: '1px solid #4a2060', borderRadius: 5, fontSize: 11, color: '#b06ade', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Double-header week — players on double-header PLL teams show Game A and Game B columns.
-        </div>
-      )}
 
       <div style={{ overflowX: 'auto' }}>
         <table className="score-table">
           <thead>
             <tr>
-              <th>Pos</th>
-              <th>Player</th>
-              <th>Team</th>
+              <th>Pos</th><th>Player</th><th>Team</th>
               <th style={{ textAlign: 'center' }}>Game A</th>
               <th style={{ textAlign: 'center' }}>Game B</th>
             </tr>

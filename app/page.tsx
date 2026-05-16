@@ -31,6 +31,7 @@ export default function Home() {
   const [gamePicks, setGamePicks] = useState<GamePick[]>([])
   const [pllDoubleHeaders, setPllDoubleHeaders] = useState<PllDoubleHeader[]>([])
   const [tab, setTab] = useState('matchups')
+  const [initialTabSet, setInitialTabSet] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const loadData = useCallback(async () => {
@@ -74,7 +75,7 @@ export default function Home() {
     setMatchups(matchupsData ?? [])
     setGamePicks(picksData ?? [])
     setPllDoubleHeaders(doubleHeadersData ?? [])
-    if (prof?.team_id) setTab('team')
+    if (prof?.team_id && !initialTabSet) { setTab('team'); setInitialTabSet(true) }
     setLoading(false)
   }, [supabase, router])
 

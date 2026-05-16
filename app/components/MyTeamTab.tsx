@@ -3,7 +3,7 @@
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
+import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
 import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
@@ -13,12 +13,11 @@ interface Props {
   players: Player[]
   scores: PlayerScore[]
   rosters: RosterSlot[]
+  snapshots: RosterSnapshot[]
   settings: LeagueSettings
   schedule: WeekSchedule[]
-  matchups: any[]
+  matchups: Matchup[]
   gamePicks: GamePick[]
-  snapshots: RosterSnapshot[]
-  pllDoubleHeaders: PllDoubleHeader[]
   pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
@@ -28,7 +27,7 @@ function canFitInSlot(player: Player, slotIndex: number): boolean {
   return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
 }
 
-export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, matchups, gamePicks, pllDoubleHeaders, snapshots, onRefresh }: Props) {
+export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, snapshots, settings, schedule, matchups, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
   const [dropMode, setDropMode] = useState(false)
   const [dropping, setDropping] = useState<Set<number>>(new Set())
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
@@ -40,10 +39,15 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const [nameSaving, setNameSaving] = useState(false)
 
   const week = settings.current_week
+  const lockedTeams: string[] = settings.locked_pll_teams ?? []
   const myTeam = teams.find(t => t.id === myTeamId)
   const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
-  const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders)
+  const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders, week, snapshots)
   const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
+
+  function isPlayerLocked(p: Player) {
+    return lockedTeams.includes(p.pll_team)
+  }
 
   function getPlayerAtSlot(i: number): Player | null {
     const playerId = i in pending
@@ -66,6 +70,15 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
     }
     const fromPlayer = getPlayerAtSlot(selectedSlot)!
     const toPlayer = getPlayerAtSlot(slotIndex)
+
+    if (isPlayerLocked(fromPlayer)) {
+      showMsg(`${fromPlayer.pll_team} players are locked during live games`, 'error')
+      setSelectedSlot(null); return
+    }
+    if (toPlayer && isPlayerLocked(toPlayer)) {
+      showMsg(`${toPlayer.pll_team} players are locked during live games`, 'error')
+      setSelectedSlot(null); return
+    }
     if (!canFitInSlot(fromPlayer, slotIndex)) {
       showMsg(`${fromPlayer.name} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
       setSelectedSlot(null); return
@@ -122,8 +135,9 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
 
   const weekPts = (p: Player) => {
     const isDouble = pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === p.pll_team)
-    const gameA = scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0
-    const gameB = scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points ?? null
+    const gameA = Number(scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0)
+    const gameBRaw = scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points
+    const gameB = gameBRaw !== undefined ? Number(gameBRaw) : null
     if (isDouble && gameB !== null) return Math.round(((gameA + gameB) / 2) * 100) / 100
     return gameA
   }
@@ -136,6 +150,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
     const isPending = i in pending
     const isMarkedDrop = dropMode && dropping.has(i)
     const pts = player ? weekPts(player) : null
+    const locked = player ? isPlayerLocked(player) : false
 
     let borderColor = 'var(--navy-border)'
     let bg: string | undefined
@@ -156,7 +171,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
           {player ? (
             <div>
               <div style={{ fontSize: 12, fontFamily: 'sans-serif', textDecoration: isMarkedDrop ? 'line-through' : undefined, color: isMarkedDrop ? '#e06060' : isSelected ? 'var(--gold)' : undefined }}>
-                {player.name}
+                {player.name}{locked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
             </div>
@@ -179,6 +194,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
 
   return (
     <div>
+      {/* Team name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         {editingName ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -197,12 +213,21 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         )}
       </div>
 
+      {/* Lock notice */}
+      {lockedTeams.length > 0 && (
+        <div style={{ padding: '7px 12px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 6, fontSize: 12, color: '#e06060', fontFamily: 'sans-serif', marginBottom: 12 }}>
+          🔒 Locked teams (live games): {lockedTeams.join(', ')}
+        </div>
+      )}
+
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12, marginBottom: 18 }}>
         <div className="stat-chip"><div className="stat-val">{weekScore}</div><div className="stat-lbl">Wk {week} Score</div></div>
         <div className="stat-chip"><div className="stat-val">{record.wins}-{record.losses}</div><div className="stat-lbl">Record</div></div>
         <div className="stat-chip"><div className="stat-val">{record.points_for}</div><div className="stat-lbl">Points For</div></div>
       </div>
 
+      {/* Feedback */}
       {msg && (
         <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 12,
           background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a',
@@ -212,6 +237,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       )}
 
+      {/* Action bar */}
       {dropMode ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 7, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontFamily: 'sans-serif', color: '#e06060' }}>
@@ -241,6 +267,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       )}
 
+      {/* Roster */}
       <div>
         <div className="section-title">Roster</div>
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>

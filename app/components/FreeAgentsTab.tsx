@@ -1,12 +1,9 @@
 'use client'
 // app/components/FreeAgentsTab.tsx
-// Browse all free agents, add them to your bench.
-// Position eligibility: bench accepts all positions, so no position gating here.
-// Full roster (14/14) blocks adding.
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 
 interface Props {
   myTeamId: number
@@ -14,10 +11,12 @@ interface Props {
   players: Player[]
   scores: PlayerScore[]
   rosters: RosterSlot[]
+  snapshots: RosterSnapshot[]
   settings: LeagueSettings
   schedule: WeekSchedule[]
   matchups: Matchup[]
   gamePicks: GamePick[]
+  pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
 
@@ -28,6 +27,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
   const [saving, setSaving] = useState(false)
 
   const week = settings.current_week
+  const lockedTeams: string[] = settings.locked_pll_teams ?? []
   const allOwnedIds = new Set(rosters.map(r => r.player_id).filter(Boolean))
   const myRoster = rosters.filter(r => r.team_id === myTeamId)
   const myRosterCount = myRoster.filter(r => r.player_id !== null).length
@@ -49,8 +49,11 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
       showMsg('Roster is full (14/14) — drop a player before adding', 'error')
       return
     }
+    if (lockedTeams.includes(player.pll_team)) {
+      showMsg(`${player.pll_team} players are locked during live games`, 'error')
+      return
+    }
 
-    // Find first open bench slot
     const benchSlot = [10, 11, 12, 13].find(i => {
       const slot = myRoster.find(r => r.slot_index === i)
       return !slot || slot.player_id === null
@@ -88,13 +91,19 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
         <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>
           Roster: <strong style={{ color: isFull ? '#e06060' : 'var(--green)' }}>{myRosterCount}/14</strong>
         </div>
-        {isFull && (
+        {isFull ? (
           <div style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Full — drop a player to add someone new</div>
-        )}
-        {!isFull && (
+        ) : (
           <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Players are added to your bench. Move them to starter slots from My Team.</div>
         )}
       </div>
+
+      {/* Lock notice */}
+      {lockedTeams.length > 0 && (
+        <div style={{ padding: '7px 12px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 6, fontSize: 12, color: '#e06060', fontFamily: 'sans-serif', marginBottom: 12 }}>
+          🔒 Locked teams (live games): {lockedTeams.join(', ')}
+        </div>
+      )}
 
       {/* Search + filter */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -106,7 +115,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
           onChange={e => setSearch(e.target.value)}
         />
         <div className="filter-bar" style={{ margin: 0 }}>
-          {['ALL', 'A', 'M', 'D', 'SSDM', 'FO', 'G'].map(f => (
+          {['ALL', 'A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'].map(f => (
             <button key={f} className={`filter-btn${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>{f}</button>
           ))}
         </div>
@@ -123,16 +132,20 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
 
       {freeAgents.map(p => {
         const pts = weekPts(p)
+        const isLocked = lockedTeams.includes(p.pll_team)
         return (
           <div
             key={p.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 5, transition: 'background .1s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 5, transition: 'background .1s', opacity: isLocked ? 0.6 : 1 }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <span className={`pos pos-${p.position}`}>{p.position}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.name}</div>
+              <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>
+                {p.name}
+                {isLocked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
+              </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>
             </div>
             <div style={{ textAlign: 'right', minWidth: 54, fontFamily: 'sans-serif', fontSize: 11 }}>
@@ -141,11 +154,11 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
             </div>
             <button
               className="btn btn-sm btn-success"
-              disabled={saving || isFull}
+              disabled={saving || isFull || isLocked}
               onClick={() => addPlayer(p)}
-              style={isFull ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+              style={isFull || isLocked ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
-              Add
+              {isLocked ? '🔒' : 'Add'}
             </button>
           </div>
         )
