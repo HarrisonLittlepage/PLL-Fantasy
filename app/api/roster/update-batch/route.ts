@@ -2,12 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, getUserFromRequest } from '../../../lib/supabase-server'
 
-const SLOT_POSITIONS = ['A','A','M','M','D','D','FO','G','FLEX','FLEX','BN','BN','BN','BN']
+const SLOT_POSITIONS = ['FO','A','A','M','M','D','D','G','FLEX','FLEX','BN','BN','BN','BN']
+
 const ELIGIBLE: Record<string, string[]> = {
+  FO:   ['FO'],
   A:    ['A'],
   M:    ['M', 'SSDM'],
   D:    ['D', 'SSDM', 'LSM'],
-  FO:   ['FO'],
   G:    ['G'],
   FLEX: ['A', 'M', 'D', 'SSDM', 'LSM', 'FO'],
   BN:   ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'],
@@ -38,8 +39,7 @@ export async function POST(req: NextRequest) {
     playerMap = Object.fromEntries((rows ?? []).map(p => [p.id, p]))
   }
 
-  // Also need to check players being removed from slots (drops/swaps out)
-  // Get current roster to find players being moved out
+  // Get current roster to check outgoing players
   const { data: currentRoster } = await admin
     .from('rosters')
     .select('slot_index, player_id')
@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
     if (slot_index < 0 || slot_index > 13)
       return NextResponse.json({ error: `Invalid slot index: ${slot_index}` }, { status: 400 })
 
-    // Check if incoming player is locked
     if (player_id) {
       const player = playerMap[player_id]
       if (!player) return NextResponse.json({ error: `Player ${player_id} not found` }, { status: 400 })
@@ -69,7 +68,7 @@ export async function POST(req: NextRequest) {
       if (other) return NextResponse.json({ error: 'Player is on another team' }, { status: 409 })
     }
 
-    // Check if player being moved OUT of this slot is locked
+    // Check outgoing player lock
     const outgoingPlayerId = currentMap[slot_index]
     if (outgoingPlayerId && outgoingPlayerId !== player_id) {
       const { data: outPlayer } = await admin.from('players').select('pll_team').eq('id', outgoingPlayerId).single()
