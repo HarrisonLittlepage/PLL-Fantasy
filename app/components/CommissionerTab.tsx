@@ -3,8 +3,10 @@
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { getPlayoffSeeds } from '../lib/scoring'
+
+const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
 
 interface Props {
   teams: FantasyTeam[]
@@ -15,12 +17,13 @@ interface Props {
   schedule: WeekSchedule[]
   matchups: Matchup[]
   gamePicks: GamePick[]
+  pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
 
 type CommView = 'settings' | 'users' | 'scores'
 
-export default function CommissionerTab({ teams, players, scores, settings, schedule, matchups, rosters, gamePicks, onRefresh }: Props) {
+export default function CommissionerTab({ teams, players, scores, settings, schedule, matchups, rosters, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
   const [view, setView] = useState<CommView>('settings')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -49,17 +52,19 @@ export default function CommissionerTab({ teams, players, scores, settings, sche
           </div>
         )}
 
-        {view === 'settings' && <SettingsView settings={settings} schedule={schedule} matchups={matchups} rosters={rosters} scores={scores} gamePicks={gamePicks} teams={teams} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />}
+        {view === 'settings' && <SettingsView settings={settings} schedule={schedule} matchups={matchups} rosters={rosters} scores={scores} gamePicks={gamePicks} teams={teams} players={players} pllDoubleHeaders={pllDoubleHeaders} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />}
         {view === 'users' && <UsersView teams={teams} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
-        {view === 'scores' && <ScoresView players={players} scores={scores} settings={settings} schedule={schedule} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
+        {view === 'scores' && <ScoresView players={players} scores={scores} settings={settings} pllDoubleHeaders={pllDoubleHeaders} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
       </div>
     </div>
   )
 }
 
-// ── SETTINGS VIEW ────────────────────────────────────────────────────────────
-function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks, teams, saving, setSaving, flash, onRefresh }: any) {
-  const seeds = getPlayoffSeeds(teams, rosters, scores, schedule, matchups, settings.bye_scoring_mode, gamePicks)
+// ── SETTINGS VIEW ─────────────────────────────────────────────────────────────
+function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks, teams, players, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
+  const seeds = getPlayoffSeeds(teams, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
+  const [dhWeek, setDhWeek] = useState(settings.current_week)
+  const [dhTeam, setDhTeam] = useState(PLL_TEAMS[0])
 
   async function updateSettings(patch: Partial<{ current_week: number; bye_scoring_mode: string }>) {
     setSaving(true)
@@ -73,49 +78,105 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
     setSaving(false)
   }
 
+  async function addDoubleHeader() {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/double-header', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ week: dhWeek, pll_team: dhTeam }),
+    })
+    if (res.ok) { onRefresh(); flash(`${dhTeam} marked as double-header for week ${dhWeek}`) }
+    else { const d = await res.json(); flash(d.error ?? 'Error saving', 'error') }
+    setSaving(false)
+  }
+
+  async function removeDoubleHeader(week: number, pll_team: string) {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/double-header', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ week, pll_team }),
+    })
+    if (res.ok) { onRefresh(); flash(`Removed double-header for ${pll_team} week ${week}`) }
+    else { const d = await res.json(); flash(d.error ?? 'Error removing', 'error') }
+    setSaving(false)
+  }
+
   return (
     <div>
       <div className="section-title" style={{ color: 'var(--comm-purple)' }}>League Settings</div>
 
       <div className="toggle-row">
         <div>
-          <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>Double-header scoring mode</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginTop: 2 }}>
-            {settings.bye_scoring_mode === 'avg' ? 'Averaging both games (default)' : 'Users pick which game to score'}
-          </div>
-        </div>
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={settings.bye_scoring_mode === 'pick'}
-            onChange={e => updateSettings({ bye_scoring_mode: e.target.checked ? 'pick' : 'avg' })}
-            disabled={saving}
-          />
-          <span className="toggle-slider" />
-        </label>
-      </div>
-
-      <div className="toggle-row">
-        <div>
           <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>Current week</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginTop: 2 }}>
-            Week {settings.current_week} of 12
-            {settings.current_week >= 11 ? ' · Playoffs' : ' · Regular Season'}
+            Week {settings.current_week} of 10
+            {settings.current_week >= 9 ? ' · Playoffs' : ' · Regular Season'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button className="btn btn-sm btn-outline" disabled={settings.current_week <= 1 || saving} onClick={() => updateSettings({ current_week: settings.current_week - 1 })}>◀</button>
           <span style={{ fontFamily: 'sans-serif', fontSize: 13, minWidth: 20, textAlign: 'center' }}>{settings.current_week}</span>
-          <button className="btn btn-sm btn-outline" disabled={settings.current_week >= 12 || saving} onClick={() => updateSettings({ current_week: settings.current_week + 1 })}>▶</button>
+          <button className="btn btn-sm btn-outline" disabled={settings.current_week >= 10 || saving} onClick={() => updateSettings({ current_week: settings.current_week + 1 })}>▶</button>
         </div>
       </div>
 
+      {/* Double-header management */}
+      <div style={{ marginTop: 20 }}>
+        <div className="section-title" style={{ color: 'var(--comm-purple)' }}>PLL Double-Header Weeks</div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 12 }}>
+          Mark which PLL teams play two games in a given week. Their players' scores will be averaged automatically.
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '1px' }}>Week</label>
+            <select className="input" style={{ width: 80 }} value={dhWeek} onChange={e => setDhWeek(parseInt(e.target.value))}>
+              {Array.from({ length: 8 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>Wk {i + 1}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '1px' }}>PLL Team</label>
+            <select className="input" style={{ width: 140 }} value={dhTeam} onChange={e => setDhTeam(e.target.value)}>
+              {PLL_TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{ alignSelf: 'flex-end' }}>
+            <button className="btn btn-comm" onClick={addDoubleHeader} disabled={saving}>
+              + Add Double-Header
+            </button>
+          </div>
+        </div>
+
+        {/* Existing double headers */}
+        {pllDoubleHeaders.length > 0 ? (
+          <div>
+            {pllDoubleHeaders
+              .slice()
+              .sort((a: PllDoubleHeader, b: PllDoubleHeader) => a.week - b.week || a.pll_team.localeCompare(b.pll_team))
+              .map((dh: PllDoubleHeader) => (
+                <div key={`${dh.week}-${dh.pll_team}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--navy-light)', borderRadius: 6, marginBottom: 6, border: '1px solid #4a2060' }}>
+                  <span style={{ fontSize: 10, color: '#b06ade', fontFamily: 'sans-serif', minWidth: 50 }}>Week {dh.week}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontFamily: 'sans-serif', color: '#b06ade' }}>{dh.pll_team}</span>
+                  <button className="btn btn-sm btn-outline" style={{ fontSize: 10 }} onClick={() => removeDoubleHeader(dh.week, dh.pll_team)} disabled={saving}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>No double-header weeks registered yet.</div>
+        )}
+      </div>
+
+      {/* Playoff picture */}
       <div style={{ marginTop: 20 }}>
         <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Current Playoff Picture</div>
         {seeds.map((s: any, i: number) => (
           <div key={s.team.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--navy-light)', borderRadius: 6, marginBottom: 6, border: '1px solid var(--navy-border)' }}>
             <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', minWidth: 16 }}>#{i + 1}</span>
-            <span style={{ fontSize: 15 }}>{s.team.icon}</span>
             <div style={{ flex: 1, fontFamily: 'sans-serif', fontSize: 13 }}>{s.team.name}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{s.wins}-{s.losses} · {s.points_for} PF</div>
           </div>
@@ -125,7 +186,7 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
   )
 }
 
-// ── USERS VIEW ───────────────────────────────────────────────────────────────
+// ── USERS VIEW ────────────────────────────────────────────────────────────────
 function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -135,7 +196,6 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
   const [profiles, setProfiles] = useState<any[]>([])
   const [loadingProfiles, setLoadingProfiles] = useState(true)
 
-  // Load existing users
   useState(() => {
     fetch('/api/commissioner/users')
       .then(r => r.json())
@@ -150,18 +210,13 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
     const res = await apiFetch('/api/commissioner/create-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email, password, display_name: displayName,
-        team_id: teamId ? parseInt(teamId) : null,
-        is_commissioner: isCommissioner,
-      }),
+      body: JSON.stringify({ email, password, display_name: displayName, team_id: teamId ? parseInt(teamId) : null, is_commissioner: isCommissioner }),
     })
     const d = await res.json()
     if (res.ok) {
       flash(`Account created for ${displayName}`)
       setEmail(''); setPassword(''); setDisplayName(''); setTeamId(''); setIsCommissioner(false)
       onRefresh()
-      // Reload profiles
       fetch('/api/commissioner/users').then(r => r.json()).then(d => setProfiles(d.users ?? []))
     } else {
       flash(d.error ?? 'Error creating user', 'error')
@@ -189,7 +244,6 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
       <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 16 }}>
         Create accounts for each league member. Share their email and password directly.
       </div>
-
       <form onSubmit={createUser} style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
         <div>
           <label style={{ display: 'block', fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '1px' }}>Display Name</label>
@@ -227,7 +281,6 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
         </button>
       </form>
 
-      {/* Existing users */}
       <div style={{ marginTop: 28 }}>
         <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Manage Existing Users</div>
         {loadingProfiles && <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Loading...</div>}
@@ -237,20 +290,12 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--navy-light)', borderRadius: 6, marginBottom: 6, border: '1px solid var(--navy-border)' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.display_name}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
-                  {p.email} · {team ? team.name : 'No team'}
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.email} · {team ? team.name : 'No team'}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {p.is_commissioner && (
-                  <span className="pill pill-comm">Commissioner</span>
-                )}
+                {p.is_commissioner && <span className="pill pill-comm">Commissioner</span>}
                 <label className="toggle" title={p.is_commissioner ? 'Remove commissioner role' : 'Grant commissioner role'}>
-                  <input
-                    type="checkbox"
-                    checked={!!p.is_commissioner}
-                    onChange={() => toggleCommissioner(p.id, !!p.is_commissioner)}
-                  />
+                  <input type="checkbox" checked={!!p.is_commissioner} onChange={() => toggleCommissioner(p.id, !!p.is_commissioner)} />
                   <span className="toggle-slider" />
                 </label>
               </div>
@@ -266,13 +311,11 @@ function UsersView({ teams, flash, saving, setSaving, onRefresh }: any) {
 }
 
 // ── SCORES VIEW ───────────────────────────────────────────────────────────────
-function ScoresView({ players, scores, settings, schedule, flash, saving, setSaving, onRefresh }: any) {
+function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving, setSaving, onRefresh }: any) {
   const [selectedWeek, setSelectedWeek] = useState(settings.current_week)
   const [localScores, setLocalScores] = useState<Record<string, number>>({})
 
-  const wkData = schedule.find((s: any) => s.week === selectedWeek)
-  const hasDoubleHeader = !!wkData?.double_team_id
-  const games = hasDoubleHeader ? ['A', 'B'] : ['A']
+  const isDoubleHeaderWeek = pllDoubleHeaders.some((dh: PllDoubleHeader) => dh.week === selectedWeek)
 
   function getScore(playerId: number, game: string) {
     const key = `${playerId}-${game}`
@@ -282,7 +325,7 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
 
   function setScore(playerId: number, game: string, val: string) {
     const key = `${playerId}-${game}`
-    setLocalScores(prev => ({ ...prev, [key]: val === '' ? 0 : parseInt(val) }))
+    setLocalScores(prev => ({ ...prev, [key]: val === '' ? 0 : parseFloat(val) }))
   }
 
   async function saveScores() {
@@ -299,17 +342,18 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
       body: JSON.stringify({ scores: payload }),
     })
     const d = await res.json()
-    if (res.ok) {
-      flash(`Saved ${d.count} score entries`)
-      setLocalScores({})
-      onRefresh()
-    } else {
-      flash(d.error ?? 'Error saving scores', 'error')
-    }
+    if (res.ok) { flash(`Saved ${d.count} score entries`); setLocalScores({}); onRefresh() }
+    else { flash(d.error ?? 'Error saving scores', 'error') }
     setSaving(false)
   }
 
-  const positions = ['A', 'M', 'D', 'SSDM', 'FO', 'G']
+  const positions = ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G']
+
+  // For double-header weeks, show game A and B columns for teams with double headers
+  function gamesForPlayer(p: Player): string[] {
+    const hasDoubleHeader = pllDoubleHeaders.some((dh: PllDoubleHeader) => dh.week === selectedWeek && dh.pll_team === p.pll_team)
+    return hasDoubleHeader ? ['A', 'B'] : ['A']
+  }
 
   return (
     <div>
@@ -318,7 +362,7 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <label style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Week:</label>
           <select className="input" style={{ width: 80 }} value={selectedWeek} onChange={e => { setSelectedWeek(parseInt(e.target.value)); setLocalScores({}) }}>
-            {Array.from({ length: 12 }, (_, i) => (
+            {Array.from({ length: 10 }, (_, i) => (
               <option key={i + 1} value={i + 1}>Wk {i + 1}</option>
             ))}
           </select>
@@ -328,9 +372,9 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
         </div>
       </div>
 
-      {hasDoubleHeader && (
+      {isDoubleHeaderWeek && (
         <div style={{ padding: '6px 10px', background: '#1a0f2a', border: '1px solid #4a2060', borderRadius: 5, fontSize: 11, color: '#b06ade', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Double-header week — enter Game A and Game B scores separately.
+          Double-header week — players on double-header PLL teams show Game A and Game B columns.
         </div>
       )}
 
@@ -341,7 +385,8 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
               <th>Pos</th>
               <th>Player</th>
               <th>Team</th>
-              {games.map(g => <th key={g} style={{ textAlign: 'center' }}>Game {g} Pts</th>)}
+              <th style={{ textAlign: 'center' }}>Game A</th>
+              <th style={{ textAlign: 'center' }}>Game B</th>
             </tr>
           </thead>
           <tbody>
@@ -350,27 +395,34 @@ function ScoresView({ players, scores, settings, schedule, flash, saving, setSav
               if (posPlayers.length === 0) return null
               return [
                 <tr key={`header-${pos}`}>
-                  <td colSpan={3 + games.length} style={{ paddingTop: 10, paddingBottom: 4, fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{pos}</td>
+                  <td colSpan={5} style={{ paddingTop: 10, paddingBottom: 4, fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{pos}</td>
                 </tr>,
-                ...posPlayers.map((p: Player) => (
-                  <tr key={p.id}>
-                    <td><span className={`pos pos-${p.position}`}>{p.position}</span></td>
-                    <td style={{ color: 'var(--text)' }}>{p.name}</td>
-                    <td style={{ color: 'var(--muted)' }}>{p.pll_team}</td>
-                    {games.map(g => (
-                      <td key={g} style={{ textAlign: 'center' }}>
-                        <input
-                          type="number"
-                          min={0}
-                          max={200}
-                          value={getScore(p.id, g)}
-                          onChange={e => setScore(p.id, g, e.target.value)}
-                          style={{ width: 60, background: 'var(--navy)', border: '1px solid var(--navy-border)', color: 'var(--text)', padding: '3px 6px', borderRadius: 4, fontSize: 12, textAlign: 'center' }}
-                        />
+                ...posPlayers.map((p: Player) => {
+                  const games = gamesForPlayer(p)
+                  return (
+                    <tr key={p.id}>
+                      <td><span className={`pos pos-${p.position}`}>{p.position}</span></td>
+                      <td style={{ color: 'var(--text)' }}>{p.name}</td>
+                      <td style={{ color: 'var(--muted)' }}>{p.pll_team}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input type="number" step="0.01" min={-100} max={200}
+                          value={getScore(p.id, 'A')}
+                          onChange={e => setScore(p.id, 'A', e.target.value)}
+                          style={{ width: 60, background: 'var(--navy)', border: '1px solid var(--navy-border)', color: 'var(--text)', padding: '3px 6px', borderRadius: 4, fontSize: 12, textAlign: 'center' }} />
                       </td>
-                    ))}
-                  </tr>
-                ))
+                      <td style={{ textAlign: 'center' }}>
+                        {games.includes('B') ? (
+                          <input type="number" step="0.01" min={-100} max={200}
+                            value={getScore(p.id, 'B')}
+                            onChange={e => setScore(p.id, 'B', e.target.value)}
+                            style={{ width: 60, background: 'var(--navy)', border: '1px solid var(--navy-border)', color: 'var(--text)', padding: '3px 6px', borderRadius: 4, fontSize: 12, textAlign: 'center' }} />
+                        ) : (
+                          <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               ]
             })}
           </tbody>
