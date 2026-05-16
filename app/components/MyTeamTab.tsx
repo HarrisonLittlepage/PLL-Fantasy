@@ -28,7 +28,7 @@ function canFitInSlot(player: Player, slotIndex: number): boolean {
   return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
 }
 
-export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
+export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, matchups, gamePicks, pllDoubleHeaders, snapshots, onRefresh }: Props) {
   const [dropMode, setDropMode] = useState(false)
   const [dropping, setDropping] = useState<Set<number>>(new Set())
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
@@ -43,7 +43,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const myTeam = teams.find(t => t.id === myTeamId)
   const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
   const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders)
-  const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, [], pllDoubleHeaders)
+  const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
 
   function getPlayerAtSlot(i: number): Player | null {
     const playerId = i in pending
