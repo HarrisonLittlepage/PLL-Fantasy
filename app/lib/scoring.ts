@@ -2,10 +2,16 @@
 
 import type { PlayerScore, RosterSlot, WeekSchedule, Matchup, FantasyTeam, TeamRecord, Player, PllDoubleHeader } from '../types'
 
+export interface RosterSnapshot {
+  team_id: number
+  week: number
+  slot_index: number
+  player_id: number | null
+}
+
 /**
  * Get a player's score for a given week.
- * If the player's PLL team has a double-header that week, averages game A and B.
- * Uses Number() coercion because Supabase returns numeric columns as strings.
+ * Averages game A and B if the player's PLL team has a double-header that week.
  */
 export function getPlayerWeekScore(
   playerId: number,
@@ -23,13 +29,30 @@ export function getPlayerWeekScore(
     ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === player.pll_team)
     : false
 
-    if (player?.name === 'Sam King') {
-    console.log('Sam King:', { gameA, gameB, isDoubleHeader, pllDoubleHeaders })
-  }
-
   if (!isDoubleHeader || gameB === null) return gameA
-
   return (gameA + gameB) / 2
+}
+
+/**
+ * Get the effective roster for a team in a given week.
+ * Uses snapshot for past weeks, live roster for current/future weeks.
+ */
+export function getRosterForWeek(
+  teamId: number,
+  week: number,
+  currentWeek: number,
+  liveRoster: RosterSlot[],
+  snapshots: RosterSnapshot[]
+): Array<{ slot_index: number; player_id: number | null }> {
+  if (week < currentWeek) {
+    // Use snapshot for completed weeks
+    const snap = snapshots.filter(s => s.team_id === teamId && s.week === week)
+    if (snap.length > 0) return snap
+    // Fall back to live roster if no snapshot exists (e.g. week 1 before snapshots were introduced)
+    return liveRoster.filter(r => r.team_id === teamId && r.slot_index <= 9)
+  }
+  // Use live roster for current week
+  return liveRoster.filter(r => r.team_id === teamId && r.slot_index <= 9)
 }
 
 /**
@@ -39,14 +62,15 @@ export function getPlayerWeekScore(
 export function getTeamWeekScore(
   teamId: number,
   week: number,
-  roster: RosterSlot[],
+  liveRoster: RosterSlot[],
   scores: PlayerScore[],
   players: Player[],
-  pllDoubleHeaders: PllDoubleHeader[]
+  pllDoubleHeaders: PllDoubleHeader[],
+  currentWeek: number = week,
+  snapshots: RosterSnapshot[] = []
 ): number {
-  const starters = roster.filter(
-    slot => slot.team_id === teamId && slot.slot_index < 10 && slot.player_id !== null
-  )
+  const roster = getRosterForWeek(teamId, week, currentWeek, liveRoster, snapshots)
+  const starters = roster.filter(r => r.slot_index <= 9 && r.player_id !== null)
 
   return starters.reduce((total, slot) => {
     return total + getPlayerWeekScore(slot.player_id!, week, scores, players, pllDoubleHeaders)
@@ -59,12 +83,14 @@ export function getTeamWeekScore(
 export function calcTeamRecord(
   teamId: number,
   upToWeek: number,
-  roster: RosterSlot[],
+  liveRoster: RosterSlot[],
   scores: PlayerScore[],
   players: Player[],
   schedule: WeekSchedule[],
   matchups: Matchup[],
-  pllDoubleHeaders: PllDoubleHeader[]
+  pllDoubleHeaders: PllDoubleHeader[],
+  currentWeek: number = upToWeek + 1,
+  snapshots: RosterSnapshot[] = []
 ): { wins: number; losses: number; points_for: number } {
   let wins = 0, losses = 0, points_for = 0
 
@@ -77,8 +103,8 @@ export function calcTeamRecord(
 
     const oppId = matchup.home_team_id === teamId ? matchup.away_team_id : matchup.home_team_id
 
-    const myScore = getTeamWeekScore(teamId, wk, roster, scores, players, pllDoubleHeaders)
-    const oppScore = getTeamWeekScore(oppId, wk, roster, scores, players, pllDoubleHeaders)
+    const myScore = getTeamWeekScore(teamId, wk, liveRoster, scores, players, pllDoubleHeaders, currentWeek, snapshots)
+    const oppScore = getTeamWeekScore(oppId, wk, liveRoster, scores, players, pllDoubleHeaders, currentWeek, snapshots)
 
     points_for += myScore
     if (myScore > oppScore) wins++
@@ -93,15 +119,17 @@ export function calcTeamRecord(
  */
 export function getPlayoffSeeds(
   teams: FantasyTeam[],
-  roster: RosterSlot[],
+  liveRoster: RosterSlot[],
   scores: PlayerScore[],
   players: Player[],
   schedule: WeekSchedule[],
   matchups: Matchup[],
-  pllDoubleHeaders: PllDoubleHeader[]
+  pllDoubleHeaders: PllDoubleHeader[],
+  currentWeek: number = 9,
+  snapshots: RosterSnapshot[] = []
 ): TeamRecord[] {
   const records: TeamRecord[] = teams.map(team => {
-    const rec = calcTeamRecord(team.id, 8, roster, scores, players, schedule, matchups, pllDoubleHeaders)
+    const rec = calcTeamRecord(team.id, 8, liveRoster, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots)
     return { team, ...rec }
   })
 

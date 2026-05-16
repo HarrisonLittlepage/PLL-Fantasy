@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from './lib/supabase-browser'
 import type {
-  Profile, FantasyTeam, Player, PlayerScore, RosterSlot,
+  Profile, FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot,
   LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader
 } from './types'
 import MyTeamTab from './components/MyTeamTab'
@@ -24,6 +24,7 @@ export default function Home() {
   const [players, setPlayers] = useState<Player[]>([])
   const [scores, setScores] = useState<PlayerScore[]>([])
   const [rosters, setRosters] = useState<RosterSlot[]>([])
+  const [snapshots, setSnapshots] = useState<RosterSnapshot[]>([])
   const [settings, setSettings] = useState<LeagueSettings | null>(null)
   const [schedule, setSchedule] = useState<WeekSchedule[]>([])
   const [matchups, setMatchups] = useState<Matchup[]>([])
@@ -42,6 +43,7 @@ export default function Home() {
       { data: playersData },
       { data: scoresData },
       { data: rostersData },
+      { data: snapshotsData },
       { data: settingsData },
       { data: scheduleData },
       { data: matchupsData },
@@ -53,6 +55,7 @@ export default function Home() {
       supabase.from('players').select('*').order('avg_pts', { ascending: false }),
       supabase.from('player_scores').select('*'),
       supabase.from('rosters').select('*'),
+      supabase.from('roster_snapshots').select('*'),
       supabase.from('league_settings').select('*').single(),
       supabase.from('week_schedule').select('*').order('week'),
       supabase.from('matchups').select('*').order('week'),
@@ -65,6 +68,7 @@ export default function Home() {
     setPlayers(playersData ?? [])
     setScores(scoresData ?? [])
     setRosters(rostersData ?? [])
+    setSnapshots(snapshotsData ?? [])
     setSettings(settingsData)
     setSchedule(scheduleData ?? [])
     setMatchups(matchupsData ?? [])
@@ -102,7 +106,7 @@ export default function Home() {
   ].filter(t => !t.hidden && (!t.commOnly || isCommissioner))
 
   const sharedProps = {
-    teams, players, scores, rosters, settings, schedule,
+    teams, players, scores, rosters, snapshots, settings, schedule,
     matchups, gamePicks, pllDoubleHeaders, onRefresh: loadData
   }
 

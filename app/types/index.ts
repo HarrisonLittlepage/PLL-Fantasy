@@ -40,6 +40,13 @@ export interface RosterSlot {
   player_id: number | null
 }
 
+export interface RosterSnapshot {
+  team_id: number
+  week: number
+  slot_index: number
+  player_id: number | null
+}
+
 export interface LeagueSettings {
   current_week: number
   bye_scoring_mode: ByeMode

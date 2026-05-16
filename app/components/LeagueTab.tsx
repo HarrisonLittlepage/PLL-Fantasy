@@ -2,7 +2,7 @@
 // app/components/LeagueTab.tsx
 
 import { useState } from 'react'
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { SLOT_LABELS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
@@ -11,6 +11,7 @@ interface Props {
   players: Player[]
   scores: PlayerScore[]
   rosters: RosterSlot[]
+  snapshots: RosterSnapshot[]
   settings: LeagueSettings
   schedule: WeekSchedule[]
   matchups: Matchup[]
@@ -19,7 +20,7 @@ interface Props {
   onRefresh: () => void
 }
 
-export default function LeagueTab({ teams, players, scores, rosters, settings, schedule, matchups, pllDoubleHeaders }: Props) {
+export default function LeagueTab({ teams, players, scores, rosters, snapshots, settings, schedule, matchups, pllDoubleHeaders }: Props) {
   const [viewing, setViewing] = useState<number | null>(null)
   const week = settings.current_week
 
@@ -28,8 +29,8 @@ export default function LeagueTab({ teams, players, scores, rosters, settings, s
       <div className="section-title">All Teams</div>
       <div className="grid2">
         {teams.map(team => {
-          const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
-          const score = getTeamWeekScore(team.id, week, rosters, scores, players, pllDoubleHeaders)
+          const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
+          const score = getTeamWeekScore(team.id, week, rosters, scores, players, pllDoubleHeaders, week, snapshots)
           const teamRoster = rosters.filter(r => r.team_id === team.id).sort((a, b) => a.slot_index - b.slot_index)
           const isExpanded = viewing === team.id
 
@@ -51,9 +52,9 @@ export default function LeagueTab({ teams, players, scores, rosters, settings, s
               {isExpanded && teamRoster.map(slot => {
                 const p = slot.player_id ? players.find(pl => pl.id === slot.player_id) : null
                 const isDouble = p ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === p.pll_team) : false
-                const gameA = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0 : null
-                const gameB = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points ?? null : null
-                const wkPts = p ? (isDouble && gameB !== null ? Math.round(((gameA! + gameB) / 2) * 100) / 100 : gameA) : null
+                const gameA = p ? Number(scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0) : null
+                const gameB = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points : undefined
+                const wkPts = p ? (isDouble && gameB !== undefined ? Math.round(((gameA! + Number(gameB)) / 2) * 100) / 100 : gameA) : null
                 return (
                   <div key={slot.slot_index} style={{ display: 'flex', gap: 6, padding: '3px 0', fontSize: 11, fontFamily: 'sans-serif', alignItems: 'center', borderBottom: '1px solid var(--navy-border)' }}>
                     <span style={{ minWidth: 52, color: 'var(--muted)', fontSize: 9 }}>{SLOT_LABELS[slot.slot_index]}</span>

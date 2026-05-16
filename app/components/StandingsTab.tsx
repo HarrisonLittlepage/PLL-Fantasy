@@ -1,7 +1,7 @@
 'use client'
 // app/components/StandingsTab.tsx
 
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { calcTeamRecord } from '../lib/scoring'
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   players: Player[]
   scores: PlayerScore[]
   rosters: RosterSlot[]
+  snapshots: RosterSnapshot[]
   settings: LeagueSettings
   schedule: WeekSchedule[]
   matchups: Matchup[]
@@ -17,11 +18,11 @@ interface Props {
   onRefresh: () => void
 }
 
-export default function StandingsTab({ teams, players, scores, rosters, settings, schedule, matchups, pllDoubleHeaders }: Props) {
+export default function StandingsTab({ teams, players, scores, rosters, snapshots, settings, schedule, matchups, pllDoubleHeaders }: Props) {
   const week = settings.current_week
 
   const rows = teams.map(team => {
-    const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
+    const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
     return { team, ...rec }
   }).sort((a, b) => b.wins - a.wins || b.points_for - a.points_for)
 

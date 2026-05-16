@@ -3,7 +3,7 @@
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { getPlayoffSeeds } from '../lib/scoring'
 
 const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
@@ -13,6 +13,7 @@ interface Props {
   players: Player[]
   scores: PlayerScore[]
   rosters: RosterSlot[]
+  snapshots: RosterSnapshot[]
   settings: LeagueSettings
   schedule: WeekSchedule[]
   matchups: Matchup[]
@@ -23,7 +24,7 @@ interface Props {
 
 type CommView = 'settings' | 'users' | 'scores'
 
-export default function CommissionerTab({ teams, players, scores, settings, schedule, matchups, rosters, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
+export default function CommissionerTab({ teams, players, scores, settings, schedule, matchups, rosters, snapshots, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
   const [view, setView] = useState<CommView>('settings')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -52,11 +53,54 @@ export default function CommissionerTab({ teams, players, scores, settings, sche
           </div>
         )}
 
-        {view === 'settings' && <SettingsView settings={settings} schedule={schedule} matchups={matchups} rosters={rosters} scores={scores} gamePicks={gamePicks} teams={teams} players={players} pllDoubleHeaders={pllDoubleHeaders} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />}
+        {view === 'settings' && <SettingsView settings={settings} schedule={schedule} matchups={matchups} rosters={rosters} scores={scores} gamePicks={gamePicks} teams={teams} players={players} pllDoubleHeaders={pllDoubleHeaders} snapshots={snapshots} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />}
         {view === 'users' && <UsersView teams={teams} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
         {view === 'scores' && <ScoresView players={players} scores={scores} settings={settings} pllDoubleHeaders={pllDoubleHeaders} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
       </div>
     </div>
+  )
+}
+
+// ── COMPLETE WEEK BUTTON ──────────────────────────────────────────────────────
+function CompleteWeekButton({ week, saving, setSaving, flash, onRefresh }: any) {
+  const [confirming, setConfirming] = useState(false)
+
+  async function completeWeek() {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/complete-week', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    const d = await res.json()
+    if (res.ok) {
+      flash(`Week ${d.completed_week} completed — now on week ${d.new_week}`)
+      setConfirming(false)
+      onRefresh()
+    } else {
+      flash(d.error ?? 'Error completing week', 'error')
+    }
+    setSaving(false)
+  }
+
+  if (confirming) {
+    return (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', background: '#1a1a08', border: '1px solid var(--gold-dark)', borderRadius: 7 }}>
+        <span style={{ fontSize: 12, color: 'var(--gold)', fontFamily: 'sans-serif', flex: 1 }}>
+          Snapshot all rosters and advance to week {week + 1}?
+        </span>
+        <button className="btn btn-sm btn-outline" onClick={() => setConfirming(false)} disabled={saving}>Cancel</button>
+        <button className="btn btn-sm btn-gold" onClick={completeWeek} disabled={saving}>
+          {saving ? 'Saving...' : 'Confirm'}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button className="btn btn-comm" onClick={() => setConfirming(true)} disabled={saving}>
+      ✓ Complete Week {week}
+    </button>
   )
 }
 
@@ -170,6 +214,18 @@ function SettingsView({ settings, schedule, matchups, rosters, scores, gamePicks
           <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>No double-header weeks registered yet.</div>
         )}
       </div>
+
+      {/* Complete week */}
+      {settings.current_week <= 8 && (
+        <div style={{ marginTop: 20 }}>
+          <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Complete Week {settings.current_week}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 10 }}>
+            Snapshots all current starting lineups, locks in this week's results, and advances to week {settings.current_week + 1}.
+            Make sure all scores are entered before completing.
+          </div>
+          <CompleteWeekButton week={settings.current_week} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />
+        </div>
+      )}
 
       {/* Playoff picture */}
       <div style={{ marginTop: 20 }}>

@@ -3,7 +3,7 @@
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
+import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
 import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
@@ -17,6 +17,8 @@ interface Props {
   schedule: WeekSchedule[]
   matchups: any[]
   gamePicks: GamePick[]
+  snapshots: RosterSnapshot[]
+  pllDoubleHeaders: PllDoubleHeader[]
   pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
