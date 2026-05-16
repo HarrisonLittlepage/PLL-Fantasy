@@ -1,7 +1,7 @@
 'use client'
 // app/components/StandingsTab.tsx
 
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { calcTeamRecord } from '../lib/scoring'
 
 interface Props {
@@ -13,33 +13,31 @@ interface Props {
   schedule: WeekSchedule[]
   matchups: Matchup[]
   gamePicks: GamePick[]
+  pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
 
-export default function StandingsTab({ teams, scores, rosters, settings, schedule, matchups, gamePicks }: Props) {
-  const { current_week: week, bye_scoring_mode: byeMode } = settings
+export default function StandingsTab({ teams, players, scores, rosters, settings, schedule, matchups, pllDoubleHeaders }: Props) {
+  const week = settings.current_week
 
   const rows = teams.map(team => {
-    const rec = calcTeamRecord(team.id, week - 1, rosters, scores, schedule, matchups, byeMode, gamePicks)
+    const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
     return { team, ...rec }
   }).sort((a, b) => b.wins - a.wins || b.points_for - a.points_for)
 
   return (
     <div>
       <div className="section-title">Standings</div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 50px', alignItems: 'center', gap: 6, padding: '7px 8px', color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--navy-border)', paddingBottom: 6, marginBottom: 4 }}>
-        <div>#</div>
-        <div>Team</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 60px', alignItems: 'center', gap: 6, padding: '7px 8px', color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--navy-border)', paddingBottom: 6, marginBottom: 4 }}>
+        <div>#</div><div>Team</div>
         <div style={{ textAlign: 'center' }}>W</div>
         <div style={{ textAlign: 'center' }}>L</div>
         <div style={{ textAlign: 'center' }}>PF</div>
       </div>
-
       {rows.map((row, i) => (
         <div key={row.team.id}>
           {i === 4 && <div className="playoff-cut" />}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 50px', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 5, fontFamily: 'sans-serif', fontSize: 12 }}
+          <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 60px', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 5, fontFamily: 'sans-serif', fontSize: 12 }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >

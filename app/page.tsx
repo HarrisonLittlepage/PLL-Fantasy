@@ -1,12 +1,12 @@
 'use client'
-// app/page.tsx — Main entry point. Fetches all data, renders nav + tabs.
+// app/page.tsx
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from './lib/supabase-browser'
 import type {
   Profile, FantasyTeam, Player, PlayerScore, RosterSlot,
-  LeagueSettings, WeekSchedule, Matchup, GamePick
+  LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader
 } from './types'
 import MyTeamTab from './components/MyTeamTab'
 import MatchupsTab from './components/MatchupsTab'
@@ -28,6 +28,7 @@ export default function Home() {
   const [schedule, setSchedule] = useState<WeekSchedule[]>([])
   const [matchups, setMatchups] = useState<Matchup[]>([])
   const [gamePicks, setGamePicks] = useState<GamePick[]>([])
+  const [pllDoubleHeaders, setPllDoubleHeaders] = useState<PllDoubleHeader[]>([])
   const [tab, setTab] = useState('matchups')
   const [loading, setLoading] = useState(true)
 
@@ -45,6 +46,7 @@ export default function Home() {
       { data: scheduleData },
       { data: matchupsData },
       { data: picksData },
+      { data: doubleHeadersData },
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('fantasy_teams').select('*').order('id'),
@@ -55,6 +57,7 @@ export default function Home() {
       supabase.from('week_schedule').select('*').order('week'),
       supabase.from('matchups').select('*').order('week'),
       supabase.from('game_picks').select('*'),
+      supabase.from('pll_double_headers').select('*'),
     ])
 
     setProfile(prof)
@@ -66,6 +69,7 @@ export default function Home() {
     setSchedule(scheduleData ?? [])
     setMatchups(matchupsData ?? [])
     setGamePicks(picksData ?? [])
+    setPllDoubleHeaders(doubleHeadersData ?? [])
     if (prof?.team_id) setTab('team')
     setLoading(false)
   }, [supabase, router])
@@ -97,7 +101,10 @@ export default function Home() {
     { id: 'commissioner', label: 'Commissioner', commOnly: true },
   ].filter(t => !t.hidden && (!t.commOnly || isCommissioner))
 
-  const sharedProps = { teams, players, scores, rosters, settings, schedule, matchups, gamePicks, onRefresh: loadData }
+  const sharedProps = {
+    teams, players, scores, rosters, settings, schedule,
+    matchups, gamePicks, pllDoubleHeaders, onRefresh: loadData
+  }
 
   return (
     <div className="app-container">

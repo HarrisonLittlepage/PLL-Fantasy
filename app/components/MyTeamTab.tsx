@@ -3,7 +3,7 @@
 
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
-import type { Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam } from '../types'
+import type { Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
 import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
@@ -17,6 +17,7 @@ interface Props {
   schedule: WeekSchedule[]
   matchups: any[]
   gamePicks: GamePick[]
+  pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
 
@@ -25,7 +26,7 @@ function canFitInSlot(player: Player, slotIndex: number): boolean {
   return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
 }
 
-export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, gamePicks, onRefresh }: Props) {
+export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, settings, schedule, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
   const [dropMode, setDropMode] = useState(false)
   const [dropping, setDropping] = useState<Set<number>>(new Set())
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
@@ -37,16 +38,10 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const [nameSaving, setNameSaving] = useState(false)
 
   const week = settings.current_week
-  const byeMode = settings.bye_scoring_mode
-  const wkData = schedule.find(s => s.week === week)
-  const isDoubleTeam = wkData?.double_team_id === myTeamId
-  const isByeTeam = wkData?.bye_team_id === myTeamId
   const myTeam = teams.find(t => t.id === myTeamId)
-
   const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
-  const myPick = gamePicks.find(gp => gp.team_id === myTeamId && gp.week === week)?.game_choice ?? 'A'
-  const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, !!isDoubleTeam, byeMode, myPick)
-  const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, schedule, [], byeMode, gamePicks)
+  const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders)
+  const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, [], pllDoubleHeaders)
 
   function getPlayerAtSlot(i: number): Player | null {
     const playerId = i in pending
@@ -62,74 +57,40 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
 
   function handleSlotTap(slotIndex: number) {
     if (dropMode) return
-
-    if (selectedSlot === slotIndex) {
-      setSelectedSlot(null)
-      return
-    }
-
+    if (selectedSlot === slotIndex) { setSelectedSlot(null); return }
     if (selectedSlot === null) {
       if (getPlayerAtSlot(slotIndex)) setSelectedSlot(slotIndex)
       return
     }
-
     const fromPlayer = getPlayerAtSlot(selectedSlot)!
     const toPlayer = getPlayerAtSlot(slotIndex)
-
     if (!canFitInSlot(fromPlayer, slotIndex)) {
       showMsg(`${fromPlayer.name} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
-      setSelectedSlot(null)
-      return
+      setSelectedSlot(null); return
     }
     if (toPlayer && !canFitInSlot(toPlayer, selectedSlot)) {
       showMsg(`${toPlayer.name} (${toPlayer.position}) can't play ${SLOT_LABELS[selectedSlot]}`, 'error')
-      setSelectedSlot(null)
-      return
+      setSelectedSlot(null); return
     }
-
-    setPending(prev => ({
-      ...prev,
-      [selectedSlot]: toPlayer?.id ?? null,
-      [slotIndex]: fromPlayer.id,
-    }))
+    setPending(prev => ({ ...prev, [selectedSlot]: toPlayer?.id ?? null, [slotIndex]: fromPlayer.id }))
     setSelectedSlot(null)
   }
 
   async function saveSwaps() {
     if (Object.keys(pending).length === 0) return
     setSaving(true)
-    const slots = Object.entries(pending).map(([slotIndex, player_id]) => ({
-      slot_index: parseInt(slotIndex), player_id,
-    }))
+    const slots = Object.entries(pending).map(([slotIndex, player_id]) => ({ slot_index: parseInt(slotIndex), player_id }))
     const res = await apiFetch('/api/roster/update-batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots }),
     })
-    if (res.ok) {
-      setPending({})
-      setSelectedSlot(null)
-      await onRefresh()
-      showMsg('Lineup saved', 'success')
-    } else {
-      const d = await res.json()
-      showMsg(d.error ?? 'Error saving', 'error')
-    }
+    if (res.ok) { setPending({}); setSelectedSlot(null); await onRefresh(); showMsg('Lineup saved', 'success') }
+    else { const d = await res.json(); showMsg(d.error ?? 'Error saving', 'error') }
     setSaving(false)
   }
 
   function toggleDrop(slotIndex: number) {
-    setDropping(prev => {
-      const next = new Set(prev)
-      if (next.has(slotIndex)) next.delete(slotIndex)
-      else next.add(slotIndex)
-      return next
-    })
-  }
-
-  function cancelDropMode() {
-    setDropMode(false)
-    setDropping(new Set())
+    setDropping(prev => { const next = new Set(prev); next.has(slotIndex) ? next.delete(slotIndex) : next.add(slotIndex); return next })
   }
 
   async function saveDrops() {
@@ -137,37 +98,19 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
     setSaving(true)
     const slots = Array.from(dropping).map(slotIndex => ({ slot_index: slotIndex, player_id: null }))
     const res = await apiFetch('/api/roster/update-batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots }),
     })
-    if (res.ok) {
-      setDropMode(false)
-      setDropping(new Set())
-      await onRefresh()
-      showMsg(`${slots.length} player${slots.length !== 1 ? 's' : ''} released`, 'success')
-    } else {
-      const d = await res.json()
-      showMsg(d.error ?? 'Error dropping players', 'error')
-    }
+    if (res.ok) { setDropMode(false); setDropping(new Set()); await onRefresh(); showMsg(`${slots.length} player${slots.length !== 1 ? 's' : ''} released`, 'success') }
+    else { const d = await res.json(); showMsg(d.error ?? 'Error dropping players', 'error') }
     setSaving(false)
-  }
-
-  async function saveGamePick(choice: 'A' | 'B') {
-    await apiFetch('/api/roster/game-pick', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week, game_choice: choice }),
-    })
-    onRefresh()
   }
 
   async function saveTeamName() {
     if (!nameInput.trim()) return
     setNameSaving(true)
     const res = await apiFetch('/api/roster/update-team-name', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ team_id: myTeamId, name: nameInput.trim() }),
     })
     if (res.ok) { onRefresh(); setEditingName(false) }
@@ -175,8 +118,13 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
     setNameSaving(false)
   }
 
-  const weekPts = (p: Player) =>
-    scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
+  const weekPts = (p: Player) => {
+    const isDouble = pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === p.pll_team)
+    const gameA = scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0
+    const gameB = scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points ?? null
+    if (isDouble && gameB !== null) return Math.round(((gameA + gameB) / 2) * 100) / 100
+    return gameA
+  }
 
   const hasPendingSwaps = Object.keys(pending).length > 0
 
@@ -194,9 +142,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
     else if (isPending) borderColor = 'var(--gold-dark)'
 
     return (
-      <div
-        key={i}
-        className="roster-slot"
+      <div key={i} className="roster-slot"
         style={{ border: `1px solid ${borderColor}`, background: bg, cursor: !dropMode ? 'pointer' : undefined }}
         onClick={() => handleSlotTap(i)}
       >
@@ -212,25 +158,15 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
             </div>
-          ) : (
-            <div className="slot-empty">{isSelected ? '← select destination' : 'Empty'}</div>
-          )}
+          ) : <div className="slot-empty">{isSelected ? '← select destination' : 'Empty'}</div>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-          {pts != null && !isMarkedDrop && (
-            <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{pts}</span>
-          )}
-          {isPending && !isMarkedDrop && (
-            <span style={{ fontSize: 9, color: 'var(--gold-dark)', fontFamily: 'sans-serif', letterSpacing: '.5px' }}>MOVED</span>
-          )}
+          {pts != null && !isMarkedDrop && <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{pts}</span>}
+          {isPending && !isMarkedDrop && <span style={{ fontSize: 9, color: 'var(--gold-dark)', fontFamily: 'sans-serif', letterSpacing: '.5px' }}>MOVED</span>}
           {dropMode && player && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={dropping.has(i)}
-                onChange={() => toggleDrop(i)}
-                style={{ accentColor: '#e06060', width: 15, height: 15, cursor: 'pointer' }}
-              />
+              <input type="checkbox" checked={dropping.has(i)} onChange={() => toggleDrop(i)}
+                style={{ accentColor: '#e06060', width: 15, height: 15, cursor: 'pointer' }} />
               <span style={{ fontSize: 11, color: '#e06060', fontFamily: 'sans-serif' }}>Drop</span>
             </label>
           )}
@@ -241,7 +177,6 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
 
   return (
     <div>
-      {/* Team name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         {editingName ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -260,49 +195,28 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         )}
       </div>
 
-      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12, marginBottom: 18 }}>
         <div className="stat-chip"><div className="stat-val">{weekScore}</div><div className="stat-lbl">Wk {week} Score</div></div>
         <div className="stat-chip"><div className="stat-val">{record.wins}-{record.losses}</div><div className="stat-lbl">Record</div></div>
         <div className="stat-chip"><div className="stat-val">{record.points_for}</div><div className="stat-lbl">Points For</div></div>
       </div>
 
-      {/* Notices */}
-      {isByeTeam && (
-        <div style={{ padding: '8px 12px', background: '#1a1a20', border: '1px solid var(--navy-border)', borderRadius: 6, fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Your team is on bye this week.
-        </div>
-      )}
-      {isDoubleTeam && byeMode === 'pick' && (
-        <div style={{ padding: '12px 14px', background: '#1a0f2a', border: '1px solid #4a2060', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: '#b06ade', fontFamily: 'sans-serif', fontWeight: 600, marginBottom: 8 }}>Double-header — pick which game counts</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className={`btn ${myPick === 'A' ? 'btn-gold' : 'btn-outline'}`} onClick={() => saveGamePick('A')}>Game A</button>
-            <button className={`btn ${myPick === 'B' ? 'btn-gold' : 'btn-outline'}`} onClick={() => saveGamePick('B')}>Game B</button>
-          </div>
-        </div>
-      )}
-      {isDoubleTeam && byeMode === 'avg' && (
-        <div style={{ padding: '8px 12px', background: '#1a0f2a', border: '1px solid #4a2060', borderRadius: 6, fontSize: 12, color: '#b06ade', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Double-header week — score averaged across both games.
-        </div>
-      )}
-
-      {/* Feedback */}
       {msg && (
-        <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 12, background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a', border: `1px solid ${msg.type === 'error' ? 'var(--red)' : 'var(--green)'}`, color: msg.type === 'error' ? '#e06060' : 'var(--green)' }}>
+        <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 12,
+          background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a',
+          border: `1px solid ${msg.type === 'error' ? 'var(--red)' : 'var(--green)'}`,
+          color: msg.type === 'error' ? '#e06060' : 'var(--green)' }}>
           {msg.text}
         </div>
       )}
 
-      {/* Action bar */}
       {dropMode ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#1a0808', border: '1px solid var(--red)', borderRadius: 7, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontFamily: 'sans-serif', color: '#e06060' }}>
             {dropping.size > 0 ? `${dropping.size} player${dropping.size !== 1 ? 's' : ''} selected` : 'Check players to release'}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm btn-outline" onClick={cancelDropMode} disabled={saving}>Cancel</button>
+            <button className="btn btn-sm btn-outline" onClick={() => { setDropMode(false); setDropping(new Set()) }} disabled={saving}>Cancel</button>
             <button className="btn btn-sm btn-danger" onClick={saveDrops} disabled={saving || dropping.size === 0}>
               {saving ? 'Saving...' : `Drop${dropping.size > 0 ? ` (${dropping.size})` : ''}`}
             </button>
@@ -321,13 +235,10 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       ) : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Tap a player then tap destination to swap</div>
-          <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>
-            Drop Players
-          </button>
+          <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>Drop Players</button>
         </div>
       )}
 
-      {/* Roster */}
       <div>
         <div className="section-title">Roster</div>
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>

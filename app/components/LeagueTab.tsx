@@ -2,7 +2,7 @@
 // app/components/LeagueTab.tsx
 
 import { useState } from 'react'
-import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick } from '../types'
+import type { FantasyTeam, Player, PlayerScore, RosterSlot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { SLOT_LABELS } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
@@ -15,31 +15,26 @@ interface Props {
   schedule: WeekSchedule[]
   matchups: Matchup[]
   gamePicks: GamePick[]
+  pllDoubleHeaders: PllDoubleHeader[]
   onRefresh: () => void
 }
 
-export default function LeagueTab({ teams, players, scores, rosters, settings, schedule, matchups, gamePicks }: Props) {
+export default function LeagueTab({ teams, players, scores, rosters, settings, schedule, matchups, pllDoubleHeaders }: Props) {
   const [viewing, setViewing] = useState<number | null>(null)
   const week = settings.current_week
-  const byeMode = settings.bye_scoring_mode
 
   return (
     <div>
       <div className="section-title">All Teams</div>
       <div className="grid2">
         {teams.map(team => {
-          const rec = calcTeamRecord(team.id, week - 1, rosters, scores, schedule, matchups, byeMode, gamePicks)
-          const wkData = schedule.find(s => s.week === week)
-          const isDouble = wkData?.double_team_id === team.id
-          const pick = gamePicks.find(gp => gp.team_id === team.id && gp.week === week)?.game_choice ?? 'A'
-          const score = getTeamWeekScore(team.id, week, rosters, scores, isDouble, byeMode, pick)
+          const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders)
+          const score = getTeamWeekScore(team.id, week, rosters, scores, players, pllDoubleHeaders)
           const teamRoster = rosters.filter(r => r.team_id === team.id).sort((a, b) => a.slot_index - b.slot_index)
           const isExpanded = viewing === team.id
 
           return (
-            <div
-              key={team.id}
-              className="card-sm"
+            <div key={team.id} className="card-sm"
               style={{ cursor: 'pointer', border: '1px solid var(--navy-border)' }}
               onClick={() => setViewing(isExpanded ? null : team.id)}
             >
@@ -53,10 +48,12 @@ export default function LeagueTab({ teams, players, scores, rosters, settings, s
                   <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Wk {week}</div>
                 </div>
               </div>
-
               {isExpanded && teamRoster.map(slot => {
                 const p = slot.player_id ? players.find(pl => pl.id === slot.player_id) : null
-                const wkPts = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0 : null
+                const isDouble = p ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === p.pll_team) : false
+                const gameA = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? 0 : null
+                const gameB = p ? scores.find(s => s.player_id === p.id && s.week === week && s.game === 'B')?.points ?? null : null
+                const wkPts = p ? (isDouble && gameB !== null ? Math.round(((gameA! + gameB) / 2) * 100) / 100 : gameA) : null
                 return (
                   <div key={slot.slot_index} style={{ display: 'flex', gap: 6, padding: '3px 0', fontSize: 11, fontFamily: 'sans-serif', alignItems: 'center', borderBottom: '1px solid var(--navy-border)' }}>
                     <span style={{ minWidth: 52, color: 'var(--muted)', fontSize: 9 }}>{SLOT_LABELS[slot.slot_index]}</span>
