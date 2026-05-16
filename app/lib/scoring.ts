@@ -1,31 +1,30 @@
 // app/lib/scoring.ts
-// Pure functions for calculating fantasy scores and standings.
-// These run on the server (API routes) and client (display).
 
-import type { PlayerScore, RosterSlot, ByeMode, GameChoice, WeekSchedule, Matchup, FantasyTeam, TeamRecord } from '../types'
+import type { PlayerScore, RosterSlot, GameChoice, WeekSchedule, Matchup, FantasyTeam, TeamRecord, Player, PllDoubleHeader } from '../types'
 
 /**
  * Get a player's score for a given week.
- * Handles double-header averaging or game picking.
+ * If the player's PLL team has a double-header that week, averages game A and B.
  */
 export function getPlayerWeekScore(
   playerId: number,
   week: number,
   scores: PlayerScore[],
-  isDoubleHeader: boolean,
-  byeMode: ByeMode,
-  gamePick: GameChoice = 'A'
+  players: Player[],
+  pllDoubleHeaders: PllDoubleHeader[]
 ): number {
   const gameA = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'A')?.points ?? 0
-  const gameB = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'B')?.points ?? 0
+  const gameB = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'B')?.points ?? null
 
-  if (!isDoubleHeader) return gameA
+  // Check if this player's PLL team has a double-header this week
+  const player = players.find(p => p.id === playerId)
+  const isDoubleHeader = player
+    ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === player.pll_team)
+    : false
 
-  if (byeMode === 'avg') {
-    return Math.round((gameA + gameB) / 2)
-  } else {
-    return gamePick === 'A' ? gameA : gameB
-  }
+  if (!isDoubleHeader || gameB === null) return gameA
+
+  return (gameA + gameB) / 2
 }
 
 /**
@@ -37,57 +36,51 @@ export function getTeamWeekScore(
   week: number,
   roster: RosterSlot[],
   scores: PlayerScore[],
-  isDoubleHeader: boolean,
-  byeMode: ByeMode,
-  gamePick: GameChoice = 'A'
+  players: Player[],
+  pllDoubleHeaders: PllDoubleHeader[]
 ): number {
-  const starters = roster
-    .filter(slot => slot.team_id === teamId && slot.slot_index < 10 && slot.player_id !== null)
+  const starters = roster.filter(
+    slot => slot.team_id === teamId && slot.slot_index < 10 && slot.player_id !== null
+  )
 
   return starters.reduce((total, slot) => {
-    return total + getPlayerWeekScore(slot.player_id!, week, scores, isDoubleHeader, byeMode, gamePick)
+    return total + getPlayerWeekScore(slot.player_id!, week, scores, players, pllDoubleHeaders)
   }, 0)
 }
 
 /**
- * Calculate win/loss record and points for for a team up to (not including) a given week.
+ * Calculate win/loss record and points for a team up to (not including) a given week.
  */
 export function calcTeamRecord(
   teamId: number,
   upToWeek: number,
   roster: RosterSlot[],
   scores: PlayerScore[],
+  players: Player[],
   schedule: WeekSchedule[],
   matchups: Matchup[],
-  byeMode: ByeMode,
-  gamePicks: Array<{ team_id: number; week: number; game_choice: GameChoice }>
+  pllDoubleHeaders: PllDoubleHeader[]
 ): { wins: number; losses: number; points_for: number } {
   let wins = 0, losses = 0, points_for = 0
 
-  for (let wk = 1; wk <= Math.min(upToWeek, 10); wk++) {
+  for (let wk = 1; wk <= Math.min(upToWeek, 8); wk++) {
     const wkData = schedule.find(s => s.week === wk)
     if (!wkData || wkData.week_type !== 'regular') continue
-    if (wkData.bye_team_id === teamId) continue // bye week, no record impact
 
     const matchup = matchups.find(m => m.week === wk && (m.home_team_id === teamId || m.away_team_id === teamId))
     if (!matchup) continue
 
     const oppId = matchup.home_team_id === teamId ? matchup.away_team_id : matchup.home_team_id
-    const isDoubleHeader = wkData.double_team_id === teamId
-    const oppIsDouble = wkData.double_team_id === oppId
 
-    const myPick = gamePicks.find(p => p.team_id === teamId && p.week === wk)?.game_choice ?? 'A'
-    const oppPick = gamePicks.find(p => p.team_id === oppId && p.week === wk)?.game_choice ?? 'A'
-
-    const myScore = getTeamWeekScore(teamId, wk, roster, scores, isDoubleHeader, byeMode, myPick)
-    const oppScore = getTeamWeekScore(oppId, wk, roster, scores, oppIsDouble, byeMode, oppPick)
+    const myScore = getTeamWeekScore(teamId, wk, roster, scores, players, pllDoubleHeaders)
+    const oppScore = getTeamWeekScore(oppId, wk, roster, scores, players, pllDoubleHeaders)
 
     points_for += myScore
     if (myScore > oppScore) wins++
     else losses++
   }
 
-  return { wins, losses, points_for: Math.round(points_for) }
+  return { wins, losses, points_for: Math.round(points_for * 100) / 100 }
 }
 
 /**
@@ -97,13 +90,13 @@ export function getPlayoffSeeds(
   teams: FantasyTeam[],
   roster: RosterSlot[],
   scores: PlayerScore[],
+  players: Player[],
   schedule: WeekSchedule[],
   matchups: Matchup[],
-  byeMode: ByeMode,
-  gamePicks: Array<{ team_id: number; week: number; game_choice: GameChoice }>
+  pllDoubleHeaders: PllDoubleHeader[]
 ): TeamRecord[] {
   const records: TeamRecord[] = teams.map(team => {
-    const rec = calcTeamRecord(team.id, 10, roster, scores, schedule, matchups, byeMode, gamePicks)
+    const rec = calcTeamRecord(team.id, 8, roster, scores, players, schedule, matchups, pllDoubleHeaders)
     return { team, ...rec }
   })
 
