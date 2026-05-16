@@ -67,6 +67,11 @@ export interface GamePick {
   game_choice: GameChoice
 }
 
+export interface PllDoubleHeader {
+  week: number
+  pll_team: string
+}
+
 export interface TeamRecord {
   team: FantasyTeam
   wins: number
