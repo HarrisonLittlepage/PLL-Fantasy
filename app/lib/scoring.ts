@@ -1,10 +1,11 @@
 // app/lib/scoring.ts
 
-import type { PlayerScore, RosterSlot, GameChoice, WeekSchedule, Matchup, FantasyTeam, TeamRecord, Player, PllDoubleHeader } from '../types'
+import type { PlayerScore, RosterSlot, WeekSchedule, Matchup, FantasyTeam, TeamRecord, Player, PllDoubleHeader } from '../types'
 
 /**
  * Get a player's score for a given week.
  * If the player's PLL team has a double-header that week, averages game A and B.
+ * Uses Number() coercion because Supabase returns numeric columns as strings.
  */
 export function getPlayerWeekScore(
   playerId: number,
@@ -13,10 +14,10 @@ export function getPlayerWeekScore(
   players: Player[],
   pllDoubleHeaders: PllDoubleHeader[]
 ): number {
-  const gameA = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'A')?.points ?? 0
-  const gameB = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'B')?.points ?? null
+  const gameA = Number(scores.find(s => s.player_id === playerId && s.week === week && s.game === 'A')?.points ?? 0)
+  const gameBRaw = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'B')?.points
+  const gameB = gameBRaw !== undefined ? Number(gameBRaw) : null
 
-  // Check if this player's PLL team has a double-header this week
   const player = players.find(p => p.id === playerId)
   const isDoubleHeader = player
     ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === player.pll_team)
