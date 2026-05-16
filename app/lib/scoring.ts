@@ -23,6 +23,10 @@ export function getPlayerWeekScore(
     ? pllDoubleHeaders.some(dh => dh.week === week && dh.pll_team === player.pll_team)
     : false
 
+    if (player?.name === 'Sam King') {
+    console.log('Sam King:', { gameA, gameB, isDoubleHeader, pllDoubleHeaders })
+  }
+
   if (!isDoubleHeader || gameB === null) return gameA
 
   return (gameA + gameB) / 2
