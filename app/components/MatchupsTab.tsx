@@ -41,12 +41,12 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
   let weekMatchups: Array<{ homeId: number; awayId: number; label?: string }> = []
 
   if (isPlayoff) {
-    if (viewWeek === 11) {
+    if (viewWeek === 9) {
       weekMatchups = [
         { homeId: seeds[0].team.id, awayId: seeds[3].team.id, label: 'Semifinal — 1 vs 4' },
         { homeId: seeds[1].team.id, awayId: seeds[2].team.id, label: 'Semifinal — 2 vs 3' },
       ]
-    } else if (viewWeek === 12) {
+    } else if (viewWeek === 10) {
       weekMatchups = [{ homeId: seeds[0].team.id, awayId: seeds[1].team.id, label: 'Championship' }]
     }
   } else {
@@ -66,9 +66,9 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     <div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginRight: 4 }}>Week:</span>
-        {Array.from({ length: 12 }, (_, i) => {
+        {Array.from({ length: 10 }, (_, i) => {
           const wk = i + 1
-          const isPlayoffWk = wk >= 11
+          const isPlayoffWk = wk >= 9
           return (
             <button
               key={wk}
@@ -82,7 +82,7 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
                 fontWeight: viewWeek === wk ? 700 : 400,
               }}
             >
-              {wk < 11 ? wk : wk === 11 ? 'SF' : '🏆'}
+              {wk < 9 ? wk : wk === 9 ? 'SF' : '🏆'}
             </button>
           )
         })}
@@ -216,13 +216,11 @@ function BoxScoreModal({ modal, teams, players, scores, rosters, schedule, gameP
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{ background: 'var(--navy-card)', border: '1px solid var(--navy-border)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 700 }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Week {week}{label ? ` · ${label}` : ''}</div>
           <button className="btn btn-sm btn-outline" onClick={onClose}>✕ Close</button>
         </div>
 
-        {/* Score summary */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 24, padding: '16px', background: 'var(--navy-light)', borderRadius: 8 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 15, fontWeight: 600, fontFamily: 'sans-serif', color: homeTotal > awayTotal ? 'var(--green)' : 'var(--text)' }}>{homeTeam.name}</div>
@@ -237,17 +235,15 @@ function BoxScoreModal({ modal, teams, players, scores, rosters, schedule, gameP
           </div>
         </div>
 
-        {/* Side-by-side rosters */}
         <div className="grid2" style={{ gap: 16 }}>
           {[{ team: homeTeam, roster: homeRoster }, { team: awayTeam, roster: awayRoster }].map(({ team, roster }) => (
             <div key={team.id}>
               <div className="section-title">{team.name}</div>
-              {roster.map(({ slot, player, pts }, i) => (
+              {roster.map(({ slot, player, pts }) => (
                 <div key={slot.slot_index} style={{
                   display: 'grid', gridTemplateColumns: '50px minmax(0,1fr) 30px',
                   gap: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'sans-serif',
                   borderBottom: '1px solid var(--navy-border)',
-                  background: slot.slot_index >= 10 ? 'transparent' : undefined,
                   opacity: slot.slot_index >= 10 ? 0.5 : 1,
                 }}>
                   <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center' }}>
@@ -276,17 +272,3 @@ function BoxScoreModal({ modal, teams, players, scores, rosters, schedule, gameP
     </div>
   )
 }
-
-interface Props {
-  myTeamId: number | null
-  teams: FantasyTeam[]
-  players: Player[]
-  scores: PlayerScore[]
-  rosters: RosterSlot[]
-  settings: LeagueSettings
-  schedule: WeekSchedule[]
-  matchups: Matchup[]
-  gamePicks: GamePick[]
-  onRefresh: () => void
-}
-
