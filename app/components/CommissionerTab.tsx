@@ -121,9 +121,14 @@ function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, on
   }
 
   async function openWaivers() {
-    // Build reverse standings order from current records
-    // Use teams sorted by wins asc, then PF asc (worst first)
     setSaving(true)
+    // First unlock all teams
+    await apiFetch('/api/commissioner/roster-lock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked_pll_teams: [] }),
+    })
+    // Then open waivers
     const res = await apiFetch('/api/commissioner/waiver', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -132,7 +137,7 @@ function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, on
         waiver_order: [...teams].reverse().map((t: any) => t.id),
       }),
     })
-    if (res.ok) { onRefresh(); flash('Waivers opened') }
+    if (res.ok) { onRefresh(); flash('Waivers opened — all teams unlocked') }
     else { const d = await res.json(); flash(d.error ?? 'Error opening waivers', 'error') }
     setSaving(false)
   }
@@ -238,27 +243,31 @@ function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, on
       {/* Waiver wire */}
       <div style={{ marginTop: 20 }}>
         <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Waiver Wire</div>
-        {settings.waiver_state === 'open' ? (
+        <div className="toggle-row">
           <div>
-            <div style={{ padding: '8px 12px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 6, fontSize: 12, color: 'var(--green)', fontFamily: 'sans-serif', marginBottom: 10 }}>
-              Waivers are open — pick {settings.waiver_order?.length ?? 0} teams in queue, currently on pick #{(settings.waiver_current_idx ?? 0) + 1}
+            <div style={{ fontSize: 13, fontFamily: 'sans-serif', color: settings.waiver_state === 'open' ? 'var(--green)' : 'var(--text)' }}>
+              {settings.waiver_state === 'open' ? '🟢 Waivers Open' : 'Waivers Closed'}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-              <button className="btn btn-sm btn-outline" onClick={advanceWaiverTurn} disabled={saving}>
-                Skip Current Turn
-              </button>
-              <button className="btn btn-sm btn-danger" onClick={closeWaivers} disabled={saving}>
-                End Waivers
-              </button>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginTop: 2 }}>
+              {settings.waiver_state === 'open'
+                ? `Pick #${(settings.waiver_current_idx ?? 0) + 1} of ${settings.waiver_order?.length ?? 0} — ${teams.find((t: any) => t.id === settings.waiver_order?.[settings.waiver_current_idx ?? 0])?.name ?? '...'} is up`
+                : 'Toggle on to open waiver period — unlocks all teams automatically'}
             </div>
           </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 10 }}>
-              Opens a waiver period in reverse standings order. Teams pick one at a time until everyone passes.
-            </div>
-            <button className="btn btn-comm" onClick={openWaivers} disabled={saving}>
-              Open Waivers
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={settings.waiver_state === 'open'}
+              disabled={saving}
+              onChange={() => settings.waiver_state === 'open' ? closeWaivers() : openWaivers()}
+            />
+            <span className="toggle-slider" style={settings.waiver_state === 'open' ? { background: 'var(--green)' } : {}} />
+          </label>
+        </div>
+        {settings.waiver_state === 'open' && (
+          <div style={{ marginTop: 10 }}>
+            <button className="btn btn-sm btn-outline" onClick={advanceWaiverTurn} disabled={saving}>
+              Skip Current Turn
             </button>
           </div>
         )}
