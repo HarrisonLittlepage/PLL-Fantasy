@@ -55,10 +55,6 @@ export interface LeagueSettings {
   waiver_state: string | null
   waiver_order: number[]
   waiver_current_idx: number
-  locked_pll_teams: string[]
-  waiver_state: string | null
-  waiver_order: number[]
-  waiver_current_idx: number
 }
 
 export interface WeekSchedule {

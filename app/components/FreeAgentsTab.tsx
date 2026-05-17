@@ -28,6 +28,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
 
   const week = settings.current_week
   const lockedTeams: string[] = settings.locked_pll_teams ?? []
+  const waiverOpen = settings.waiver_state === 'open'
   const allOwnedIds = new Set(rosters.map(r => r.player_id).filter(Boolean))
   const myRoster = rosters.filter(r => r.team_id === myTeamId)
   const myRosterCount = myRoster.filter(r => r.player_id !== null).length
@@ -45,6 +46,10 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
   }
 
   async function addPlayer(player: Player) {
+    if (waiverOpen) {
+      showMsg('Waivers are active — use the Waivers tab to add players', 'error')
+      return
+    }
     if (isFull) {
       showMsg('Roster is full (14/14) — drop a player before adding', 'error')
       return
@@ -97,6 +102,13 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
           <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Players are added to your bench. Move them to starter slots from My Team.</div>
         )}
       </div>
+
+      {/* Waiver notice */}
+      {waiverOpen && (
+        <div style={{ padding: '10px 14px', background: '#1a1a08', border: '1px solid var(--gold-dark)', borderRadius: 6, fontSize: 12, color: 'var(--gold)', fontFamily: 'sans-serif', marginBottom: 12 }}>
+          Waiver wire is active — use the Waivers tab to add players.
+        </div>
+      )}
 
       {/* Lock notice */}
       {lockedTeams.length > 0 && (
@@ -154,11 +166,11 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
             </div>
             <button
               className="btn btn-sm btn-success"
-              disabled={saving || isFull || isLocked}
+              disabled={saving || isFull || isLocked || waiverOpen}
               onClick={() => addPlayer(p)}
-              style={isFull || isLocked ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+              style={isFull || isLocked || waiverOpen ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
-              {isLocked ? '🔒' : 'Add'}
+              {isLocked ? '🔒' : waiverOpen ? '—' : 'Add'}
             </button>
           </div>
         )

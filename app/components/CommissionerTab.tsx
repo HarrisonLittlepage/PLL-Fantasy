@@ -104,7 +104,7 @@ function CompleteWeekButton({ week, saving, setSaving, flash, onRefresh }: any) 
 }
 
 // ── SETTINGS VIEW ─────────────────────────────────────────────────────────────
-function SettingsView({ settings, teams, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
+function SettingsView({ settings, teams, players, rosters, snapshots, scores, schedule, matchups, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
   const [dhWeek, setDhWeek] = useState(settings.current_week)
   const [dhTeam, setDhTeam] = useState(PLL_TEAMS[0])
 
@@ -122,20 +122,26 @@ function SettingsView({ settings, teams, pllDoubleHeaders, saving, setSaving, fl
 
   async function openWaivers() {
     setSaving(true)
-    // First unlock all teams
+    // Sort teams by standings — worst record first (reverse standings order)
+    const { calcTeamRecord } = await import('../lib/scoring')
+    const week = settings.current_week
+    const ranked = [...teams].map((t: any) => {
+      const rec = calcTeamRecord(t.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
+      return { id: t.id, wins: rec.wins, points_for: rec.points_for }
+    }).sort((a: any, b: any) => a.wins - b.wins || a.points_for - b.points_for)
+    const waiver_order = ranked.map((t: any) => t.id)
+
+    // Unlock all teams first
     await apiFetch('/api/commissioner/roster-lock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ locked_pll_teams: [] }),
     })
-    // Then open waivers
+    // Open waivers
     const res = await apiFetch('/api/commissioner/waiver', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'open',
-        waiver_order: [...teams].reverse().map((t: any) => t.id),
-      }),
+      body: JSON.stringify({ action: 'open', waiver_order }),
     })
     if (res.ok) { onRefresh(); flash('Waivers opened — all teams unlocked') }
     else { const d = await res.json(); flash(d.error ?? 'Error opening waivers', 'error') }
