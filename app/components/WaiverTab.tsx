@@ -90,14 +90,10 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
     scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
 
   if (!waiverOpen) {
-    return (
+return (
       <div style={{ padding: '40px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🏒</div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', fontFamily: 'sans-serif', marginBottom: 8 }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
           Waivers are closed
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
-          The commissioner will open waivers after the week is complete.
         </div>
       </div>
     )
