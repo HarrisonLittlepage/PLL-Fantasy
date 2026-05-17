@@ -131,7 +131,7 @@ return (
       {isMyTurn && (
         <div style={{ padding: '12px 16px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)', fontFamily: 'sans-serif' }}>
-            🎯 It's your turn to pick!
+            It's your turn to pick!
           </div>
           <button className="btn btn-sm btn-outline" onClick={handlePass} disabled={saving}>
             Pass
@@ -197,7 +197,7 @@ return (
               onClick={() => handlePick(p)}
               style={!isMyTurn || isFull ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
-              {!isMyTurn ? '—' : 'Pick'}
+              {!isMyTurn ? '—' : 'Add'}
             </button>
           </div>
         )
