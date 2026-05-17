@@ -52,6 +52,13 @@ export interface LeagueSettings {
   bye_scoring_mode: ByeMode
   season_year: number
   locked_pll_teams: string[]
+  waiver_state: string | null
+  waiver_order: number[]
+  waiver_current_idx: number
+  locked_pll_teams: string[]
+  waiver_state: string | null
+  waiver_order: number[]
+  waiver_current_idx: number
 }
 
 export interface WeekSchedule {
@@ -88,13 +95,13 @@ export interface TeamRecord {
 }
 
 export const SLOT_LABELS = [
-  'Faceoff', 'Attack', 'Attack', 'Midfield', 'Midfield',
-  'Defense', 'Defense', 'Goalie',
+  'Attack', 'Attack', 'Midfield', 'Midfield',
+  'Defense', 'Defense', 'Faceoff', 'Goalie',
   'Flex', 'Flex', 'Bench', 'Bench', 'Bench', 'Bench'
 ]
 
 export const SLOT_POSITIONS = [
-  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
+  'A', 'A', 'M', 'M', 'D', 'D', 'FO', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
 ]
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {

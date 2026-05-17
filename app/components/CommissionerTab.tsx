@@ -120,6 +120,47 @@ function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, on
     setSaving(false)
   }
 
+  async function openWaivers() {
+    // Build reverse standings order from current records
+    // Use teams sorted by wins asc, then PF asc (worst first)
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/waiver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'open',
+        waiver_order: [...teams].reverse().map((t: any) => t.id),
+      }),
+    })
+    if (res.ok) { onRefresh(); flash('Waivers opened') }
+    else { const d = await res.json(); flash(d.error ?? 'Error opening waivers', 'error') }
+    setSaving(false)
+  }
+
+  async function closeWaivers() {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/waiver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'close' }),
+    })
+    if (res.ok) { onRefresh(); flash('Waivers closed — free agents open') }
+    else { const d = await res.json(); flash(d.error ?? 'Error closing waivers', 'error') }
+    setSaving(false)
+  }
+
+  async function advanceWaiverTurn() {
+    setSaving(true)
+    const res = await apiFetch('/api/commissioner/waiver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'advance' }),
+    })
+    if (res.ok) { onRefresh(); flash('Turn advanced') }
+    else { const d = await res.json(); flash(d.error ?? 'Error advancing turn', 'error') }
+    setSaving(false)
+  }
+
   async function toggleTeamLock(team: string, currentlyLocked: boolean) {
     const current: string[] = settings.locked_pll_teams ?? []
     const updated = currentlyLocked
@@ -192,6 +233,35 @@ function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, on
           <span style={{ fontFamily: 'sans-serif', fontSize: 13, minWidth: 20, textAlign: 'center' }}>{settings.current_week}</span>
           <button className="btn btn-sm btn-outline" disabled={settings.current_week >= 10 || saving} onClick={() => updateSettings({ current_week: settings.current_week + 1 })}>▶</button>
         </div>
+      </div>
+
+      {/* Waiver wire */}
+      <div style={{ marginTop: 20 }}>
+        <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Waiver Wire</div>
+        {settings.waiver_state === 'open' ? (
+          <div>
+            <div style={{ padding: '8px 12px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 6, fontSize: 12, color: 'var(--green)', fontFamily: 'sans-serif', marginBottom: 10 }}>
+              Waivers are open — pick {settings.waiver_order?.length ?? 0} teams in queue, currently on pick #{(settings.waiver_current_idx ?? 0) + 1}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+              <button className="btn btn-sm btn-outline" onClick={advanceWaiverTurn} disabled={saving}>
+                Skip Current Turn
+              </button>
+              <button className="btn btn-sm btn-danger" onClick={closeWaivers} disabled={saving}>
+                End Waivers
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 10 }}>
+              Opens a waiver period in reverse standings order. Teams pick one at a time until everyone passes.
+            </div>
+            <button className="btn btn-comm" onClick={openWaivers} disabled={saving}>
+              Open Waivers
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Roster locks */}
