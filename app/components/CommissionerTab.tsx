@@ -104,7 +104,7 @@ function CompleteWeekButton({ week, saving, setSaving, flash, onRefresh }: any) 
 }
 
 // ── SETTINGS VIEW ─────────────────────────────────────────────────────────────
-function SettingsView({ settings, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
+function SettingsView({ settings, teams, pllDoubleHeaders, saving, setSaving, flash, onRefresh }: any) {
   const [dhWeek, setDhWeek] = useState(settings.current_week)
   const [dhTeam, setDhTeam] = useState(PLL_TEAMS[0])
 
