@@ -1,5 +1,6 @@
 // app/api/commissioner/complete-week/route.ts
 // Snapshots all team starting lineups for the current week, then advances to next week.
+// Also recalculates avg_pts for all players based on weeks they actually played.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, getUserFromRequest } from '../../../lib/supabase-server'
@@ -48,6 +49,82 @@ export async function POST(req: NextRequest) {
     if (snapError) return NextResponse.json({ error: snapError.message }, { status: 500 })
   }
 
+  // ── Recalculate avg_pts for all players ──────────────────────────────────
+  // Fetch all scores, players, bye weeks, and double headers
+  const [
+    { data: allScores },
+    { data: allPlayers },
+    { data: byeWeeks },
+    { data: doubleHeaders },
+  ] = await Promise.all([
+    admin.from('player_scores').select('player_id, week, game, points'),
+    admin.from('players').select('id, pll_team'),
+    admin.from('pll_bye_weeks').select('week, pll_team'),
+    admin.from('pll_double_headers').select('week, pll_team'),
+  ])
+
+  if (allScores && allPlayers) {
+    // Build a map of bye weeks per PLL team
+    const byeMap: Record<string, Set<number>> = {}
+    for (const b of byeWeeks ?? []) {
+      if (!byeMap[b.pll_team]) byeMap[b.pll_team] = new Set()
+      byeMap[b.pll_team].add(b.week)
+    }
+
+    // Build a set of double-header weeks per PLL team
+    const dhMap: Record<string, Set<number>> = {}
+    for (const dh of doubleHeaders ?? []) {
+      if (!dhMap[dh.pll_team]) dhMap[dh.pll_team] = new Set()
+      dhMap[dh.pll_team].add(dh.week)
+    }
+
+    // For each player, calculate avg across weeks they actually played
+    const updates: Array<{ id: number; avg_pts: number }> = []
+
+    for (const player of allPlayers) {
+      const pllTeam = player.pll_team
+      const byeWeeksForTeam = byeMap[pllTeam] ?? new Set()
+      const dhWeeksForTeam = dhMap[pllTeam] ?? new Set()
+
+      // Get all score records for this player up to current week
+      const playerScores = allScores.filter(s => s.player_id === player.id && s.week <= week)
+
+      // Group by week
+      const scoresByWeek: Record<number, { A?: number; B?: number }> = {}
+      for (const s of playerScores) {
+        if (!scoresByWeek[s.week]) scoresByWeek[s.week] = {}
+        scoresByWeek[s.week][s.game as 'A' | 'B'] = Number(s.points)
+      }
+
+      // Get weeks where the team actually played (not on bye)
+      const weeksPlayed = Object.keys(scoresByWeek)
+        .map(Number)
+        .filter(w => !byeWeeksForTeam.has(w))
+
+      if (weeksPlayed.length === 0) continue
+
+      // Calculate total points across played weeks
+      let totalPts = 0
+      for (const w of weeksPlayed) {
+        const wkScores = scoresByWeek[w]
+        if (dhWeeksForTeam.has(w) && wkScores.B !== undefined) {
+          // Double header — average game A and B
+          totalPts += ((wkScores.A ?? 0) + wkScores.B) / 2
+        } else {
+          totalPts += wkScores.A ?? 0
+        }
+      }
+
+      const avg = Math.round((totalPts / weeksPlayed.length) * 100) / 100
+      updates.push({ id: player.id, avg_pts: avg })
+    }
+
+    // Batch update avg_pts
+    for (const update of updates) {
+      await admin.from('players').update({ avg_pts: update.avg_pts }).eq('id', update.id)
+    }
+  }
+
   // Advance current week
   const { error: weekError } = await admin
     .from('league_settings')
@@ -56,5 +133,11 @@ export async function POST(req: NextRequest) {
 
   if (weekError) return NextResponse.json({ error: weekError.message }, { status: 500 })
 
-  return NextResponse.json({ success: true, completed_week: week, new_week: week + 1, snapshots_saved: snapshots.length })
+  return NextResponse.json({
+    success: true,
+    completed_week: week,
+    new_week: week + 1,
+    snapshots_saved: snapshots.length,
+    avg_pts_updated: true,
+  })
 }
