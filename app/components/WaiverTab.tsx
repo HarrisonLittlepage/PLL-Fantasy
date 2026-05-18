@@ -124,7 +124,8 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
                 color: isCurrent ? '#0a0f1a' : 'var(--muted)',
                 border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--navy-border)'}`,
                 fontWeight: isCurrent ? 700 : 400,
-              }}>
+                 whiteSpace: 'nowrap',
+                  }}>
                 {team?.name ?? `Team ${teamId}`}
               </div>
             )
