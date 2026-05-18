@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
-import { SLOT_LABELS } from '../types'
+import { SLOT_LABELS, shortName } from '../types'
 import { getTeamWeekScore, getPlayerWeekScore, getPlayoffSeeds } from '../lib/scoring'
 
 interface Props {
@@ -200,7 +200,7 @@ function BoxScoreModal({ modal, teams, players, scores, rosters, snapshots, sche
                   <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center' }}>{SLOT_LABELS[slot.slot_index]}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     {player && <span className={`pos pos-${player.position}`}>{player.position}</span>}
-                    <span style={{ color: player ? 'var(--text)' : 'var(--muted)' }}>{player?.name ?? '—'}</span>
+                    <span style={{ color: player ? 'var(--text)' : 'var(--muted)' }}>{player ? shortName(player.name) : '—'}</span>
                   </div>
                   <div style={{ textAlign: 'right', color: 'var(--gold)', fontWeight: 600 }}>
                     {pts != null && player ? pts : ''}

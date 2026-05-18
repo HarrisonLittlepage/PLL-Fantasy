@@ -5,6 +5,7 @@ import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { SLOT_LABELS } from '../types'
 import { getTeamWeekScore, calcTeamRecord, getPlayerWeekScore } from '../lib/scoring'
+import { shortName } from '../types'
 
 interface Props {
   teams: FantasyTeam[]
@@ -56,7 +57,7 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                   <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Wk {week}</div>
                 </div>
                 <div style={{ fontSize: 16, color: 'var(--muted)', userSelect: 'none' }}>
-                  {isExpanded ? '▲' : '▼'}
+                  {isExpanded ? '⌄' : '⌃'}
                 </div>
               </div>
 
@@ -81,7 +82,10 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {p && <span className={`pos pos-${p.position}`}>{p.position}</span>}
-                          <span style={{ color: p ? 'var(--text)' : 'var(--muted)' }}>{p?.name ?? '—'}</span>
+                          <span style={{ color: p ? 'var(--text)' : 'var(--muted)' }}>
+                            {p ? shortName(p.name) : '—'}
+                            {p && <span style={{ color: 'var(--muted)', fontSize: 10, marginLeft: 5 }}>{p.pll_team}</span>}
+                          </span>
                         </div>
                         <div style={{ textAlign: 'right', color: 'var(--gold)', fontWeight: 600, fontSize: 12 }}>
                           {pts != null && p ? pts : ''}
@@ -107,7 +111,10 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {p && <span className={`pos pos-${p.position}`}>{p.position}</span>}
-                          <span style={{ color: p ? 'var(--text)' : 'var(--muted)' }}>{p?.name ?? '—'}</span>
+                         <span style={{ color: p ? 'var(--text)' : 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span>{p ? shortName(p.name) : '—'}</span>
+                            {p && <span style={{ color: 'var(--muted)', fontSize: 10 }}>{p.pll_team}</span>}
+                          </span>
                         </div>
                         <div />
                       </div>

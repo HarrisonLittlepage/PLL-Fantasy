@@ -4,6 +4,7 @@
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
+import { shortName } from '../types'
 
 interface Props {
   myTeamId: number
@@ -78,7 +79,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
 
     if (res.ok) {
       await onRefresh()
-      showMsg(`${player.name} added to bench`, 'success')
+      showMsg(`${shortName(player.name)} added to bench`, 'success')
     } else {
       const d = await res.json()
       showMsg(d.error ?? 'Error adding player', 'error')
@@ -106,7 +107,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
       {/* Waiver notice */}
       {waiverOpen && (
         <div style={{ padding: '10px 14px', background: '#1a1a08', border: '1px solid var(--gold-dark)', borderRadius: 6, fontSize: 12, color: 'var(--gold)', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Waiver wire is active — use the Waivers tab to add players.
+          🏒 Waiver wire is active — use the Waivers tab to add players.
         </div>
       )}
 
@@ -155,7 +156,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
             <span className={`pos pos-${p.position}`}>{p.position}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>
-                {p.name}
+                {shortName(p.name)}
                 {isLocked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>

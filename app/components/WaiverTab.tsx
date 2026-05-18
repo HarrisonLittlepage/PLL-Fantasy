@@ -4,6 +4,7 @@
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
+import { shortName } from '../types'
 
 interface Props {
   myTeamId: number | null
@@ -65,7 +66,7 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
     })
     if (res.ok) {
       await onRefresh()
-      showMsg(`${player.name} added to your bench`, 'success')
+      showMsg(`${shortName(player.name)} added to your bench`, 'success')
       setPickingPlayer(null)
     } else {
       const d = await res.json()
@@ -90,10 +91,14 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
     scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
 
   if (!waiverOpen) {
-return (
+    return (
       <div style={{ padding: '40px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>🏒</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', fontFamily: 'sans-serif', marginBottom: 8 }}>
           Waivers are closed
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
+          The commissioner will open waivers after the week is complete.
         </div>
       </div>
     )
@@ -131,7 +136,7 @@ return (
       {isMyTurn && (
         <div style={{ padding: '12px 16px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)', fontFamily: 'sans-serif' }}>
-            It's your turn to pick!
+            🎯 It's your turn to pick!
           </div>
           <button className="btn btn-sm btn-outline" onClick={handlePass} disabled={saving}>
             Pass
@@ -184,7 +189,7 @@ return (
           >
             <span className={`pos pos-${p.position}`}>{p.position}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{p.name}</div>
+              <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>{shortName(p.name)}</div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>
             </div>
             <div style={{ textAlign: 'right', minWidth: 54, fontFamily: 'sans-serif', fontSize: 11 }}>
@@ -197,7 +202,7 @@ return (
               onClick={() => handlePick(p)}
               style={!isMyTurn || isFull ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
-              {!isMyTurn ? '—' : 'Add'}
+              {!isMyTurn ? '—' : 'Pick'}
             </button>
           </div>
         )

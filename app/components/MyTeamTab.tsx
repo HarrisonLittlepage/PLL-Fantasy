@@ -4,7 +4,7 @@
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
-import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS } from '../types'
+import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS, shortName } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
 interface Props {
@@ -81,11 +81,11 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       setSelectedSlot(null); return
     }
     if (!canFitInSlot(fromPlayer, slotIndex)) {
-      showMsg(`${fromPlayer.name} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
+      showMsg(`${shortName(fromPlayer.name)} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
       setSelectedSlot(null); return
     }
     if (toPlayer && !canFitInSlot(toPlayer, selectedSlot)) {
-      showMsg(`${toPlayer.name} (${toPlayer.position}) can't play ${SLOT_LABELS[selectedSlot]}`, 'error')
+      showMsg(`${shortName(toPlayer.name)} (${toPlayer.position}) can't play ${SLOT_LABELS[selectedSlot]}`, 'error')
       setSelectedSlot(null); return
     }
     setPending(prev => ({ ...prev, [selectedSlot]: toPlayer?.id ?? null, [slotIndex]: fromPlayer.id }))
@@ -172,7 +172,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
           {player ? (
             <div>
               <div style={{ fontSize: 12, fontFamily: 'sans-serif', textDecoration: isMarkedDrop ? 'line-through' : undefined, color: isMarkedDrop ? '#e06060' : isSelected ? 'var(--gold)' : undefined }}>
-                {player.name}{locked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
+                {shortName(player.name)}{locked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{player.pll_team}</div>
             </div>

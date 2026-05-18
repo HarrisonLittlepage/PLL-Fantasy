@@ -91,8 +91,8 @@ export interface TeamRecord {
 }
 
 export const SLOT_LABELS = [
-  'Attack', 'Attack', 'Midfield', 'Midfield',
-  'Defense', 'Defense', 'Faceoff', 'Goalie',
+  'Faceoff', 'Attack', 'Attack', 'Midfield', 'Midfield',
+  'Defense', 'Defense', 'Goalie',
   'Flex', 'Flex', 'Bench', 'Bench', 'Bench', 'Bench'
 ]
 
@@ -111,3 +111,13 @@ export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
 }
 
 export const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
+
+
+export function shortName(name: string): string {
+  if (!name) return name
+  const parts = name.trim().split(' ')
+  if (parts.length < 2) return name
+  const last = parts[parts.length - 1]
+  if (last === 'G' || last === 'FO') return name
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
