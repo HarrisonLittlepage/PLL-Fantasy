@@ -35,7 +35,6 @@ body {
 .nav-logo { font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
 @media (max-width: 480px) { .nav-logo { font-size: 15px; letter-spacing: 0.5px; } }
 .nav-logo span { color: var(--white); font-weight: 300; }
-.nav-team-name { font-size: 13px; font-weight: 400; color: var(--white); font-family: var(--font-oswald), sans-serif; letter-spacing: 0.5px; text-transform: uppercase; }
 .nav-tabs { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none; white-space: nowrap; }
 .nav-tabs::-webkit-scrollbar { display: none; }
 .tab { padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: none; background: none; font-family: sans-serif; transition: all .15s; flex-shrink: 0; }

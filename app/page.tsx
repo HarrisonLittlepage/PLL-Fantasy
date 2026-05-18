@@ -119,7 +119,6 @@ export default function Home() {
       <div className="nav">
         <div className="nav-top">
           <div className="nav-logo">PLL Fantasy<span> App</span></div>
-          <div className="nav-team-name">{myTeam ? myTeam.name : profile.display_name}</div>
         </div>
         <div className="nav-tabs">
           {navTabs.map(t => (
