@@ -107,7 +107,7 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
       {/* Waiver notice */}
       {waiverOpen && (
         <div style={{ padding: '10px 14px', background: '#1a1a08', border: '1px solid var(--gold-dark)', borderRadius: 6, fontSize: 12, color: 'var(--gold)', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          🏒 Waiver wire is active — use the Waivers tab to add players.
+          Waiver wire is active — use the Waivers tab to add players.
         </div>
       )}
 
