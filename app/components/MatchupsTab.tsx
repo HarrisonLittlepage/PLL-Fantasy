@@ -1,9 +1,9 @@
 'use client'
 // app/components/MatchupsTab.tsx
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
-import { SLOT_LABELS, shortName } from '../types'
+import { shortName } from '../types'
 import { getTeamWeekScore, getPlayerWeekScore, getPlayoffSeeds } from '../lib/scoring'
 
 interface Props {
@@ -21,16 +21,8 @@ interface Props {
   onRefresh: () => void
 }
 
-interface ModalMatchup {
-  homeId: number
-  awayId: number
-  week: number
-  label?: string
-}
-
 export default function MatchupsTab({ myTeamId, teams, players, scores, rosters, snapshots, settings, schedule, matchups, gamePicks, pllDoubleHeaders }: Props) {
   const [viewWeek, setViewWeek] = useState(settings.current_week)
-  const [modal, setModal] = useState<ModalMatchup | null>(null)
   const currentWeek = settings.current_week
 
   const wkData = schedule.find(s => s.week === viewWeek)
@@ -39,6 +31,7 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
 
   const seeds = getPlayoffSeeds(teams, rosters, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots)
 
+  // Build matchup list for this week
   let weekMatchups: Array<{ homeId: number; awayId: number; label?: string }> = []
   if (isPlayoff) {
     if (viewWeek === 9) {
@@ -53,25 +46,79 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     weekMatchups = matchups.filter(m => m.week === viewWeek).map(m => ({ homeId: m.home_team_id, awayId: m.away_team_id }))
   }
 
-  function teamScore(teamId: number, wk = viewWeek) {
-    return getTeamWeekScore(teamId, wk, rosters, scores, players, pllDoubleHeaders, currentWeek, snapshots)
+  // Default to user's own matchup
+  const myMatchupIdx = weekMatchups.findIndex(m => m.homeId === myTeamId || m.awayId === myTeamId)
+  const [activeIdx, setActiveIdx] = useState(() => myMatchupIdx >= 0 ? myMatchupIdx : 0)
+
+  // Reset activeIdx when week changes
+  const handleWeekChange = (wk: number) => {
+    setViewWeek(wk)
+    const newMatchups = matchups.filter(m => m.week === wk).map(m => ({ homeId: m.home_team_id, awayId: m.away_team_id }))
+    const myIdx = newMatchups.findIndex(m => m.homeId === myTeamId || m.awayId === myTeamId)
+    setActiveIdx(myIdx >= 0 ? myIdx : 0)
   }
+
+  // Swipe handling
+  const touchStartX = useRef<number | null>(null)
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) setActiveIdx(i => Math.min(i + 1, weekMatchups.length - 1))
+      else setActiveIdx(i => Math.max(i - 1, 0))
+    }
+    touchStartX.current = null
+  }
+
+  function teamScore(teamId: number) {
+    return getTeamWeekScore(teamId, viewWeek, rosters, scores, players, pllDoubleHeaders, currentWeek, snapshots)
+  }
+
+  function getRosterWithScores(teamId: number) {
+    let slots: Array<{ slot_index: number; player_id: number | null }>
+    if (viewWeek < currentWeek) {
+      const snap = snapshots.filter(s => s.team_id === teamId && s.week === viewWeek)
+      slots = snap.length > 0 ? snap : rosters.filter(r => r.team_id === teamId && r.slot_index < 10)
+    } else {
+      slots = rosters.filter(r => r.team_id === teamId && r.slot_index < 10)
+    }
+    return slots.sort((a, b) => a.slot_index - b.slot_index).map(slot => {
+      const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
+      const pts = player ? getPlayerWeekScore(player.id, viewWeek, scores, players, pllDoubleHeaders) : null
+      return { slot, player, pts }
+    })
+  }
+
+  const current = weekMatchups[activeIdx]
+  const homeTeam = current ? teams.find(t => t.id === current.homeId) : null
+  const awayTeam = current ? teams.find(t => t.id === current.awayId) : null
+  const homeScore = current ? teamScore(current.homeId) : 0
+  const awayScore = current ? teamScore(current.awayId) : 0
+  const homeWin = isPast && homeScore > awayScore
+  const awayWin = isPast && awayScore > homeScore
+
+  const homeRoster = current ? getRosterWithScores(current.homeId) : []
+  const awayRoster = current ? getRosterWithScores(current.awayId) : []
+  const homeTotal = Math.round(homeRoster.reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
+  const awayTotal = Math.round(awayRoster.reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginRight: 4 }}>Week:</span>
+      {/* Week selector */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, alignItems: 'center', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginRight: 4, flexShrink: 0 }}>Week:</span>
         {Array.from({ length: 10 }, (_, i) => {
           const wk = i + 1
           const isPlayoffWk = wk >= 9
           return (
-            <button key={wk} onClick={() => setViewWeek(wk)} style={{
+            <button key={wk} onClick={() => handleWeekChange(wk)} style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, borderRadius: 5, fontSize: 11, fontFamily: 'sans-serif',
               cursor: 'pointer', border: viewWeek === wk ? 'none' : '1px solid var(--navy-border)',
               background: viewWeek === wk ? (isPlayoffWk ? 'var(--gold-dark)' : 'var(--gold)') : 'transparent',
               color: viewWeek === wk ? '#0a0f1a' : isPlayoffWk ? 'var(--gold)' : 'var(--muted)',
-              fontWeight: viewWeek === wk ? 700 : 400,
+              fontWeight: viewWeek === wk ? 700 : 400, flexShrink: 0,
             }}>
               {wk < 9 ? wk : wk === 9 ? 'SF' : '🏆'}
             </button>
@@ -79,145 +126,119 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
         })}
       </div>
 
-      {isPlayoff && <div className="pill pill-playoff" style={{ marginBottom: 12, fontSize: 11 }}>{wkData?.playoff_label ?? 'Playoffs'}</div>}
-
-      {weekMatchups.map(({ homeId, awayId, label }, i) => {
-        const homeTeam = teams.find(t => t.id === homeId)
-        const awayTeam = teams.find(t => t.id === awayId)
-        if (!homeTeam || !awayTeam) return null
-        const homeScore = teamScore(homeId)
-        const awayScore = teamScore(awayId)
-        const homeWin = isPast && homeScore > awayScore
-        const awayWin = isPast && awayScore > homeScore
-        const highlight = homeId === myTeamId || awayId === myTeamId
-
-        return (
-          <div key={i} className={`matchup-card${isPlayoff ? ' playoff' : ''}`}
-            style={{ ...(highlight ? { border: '1px solid var(--gold-dark)' } : {}), cursor: 'pointer' }}
-            onClick={() => setModal({ homeId, awayId, week: viewWeek, label })}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'sans-serif', color: homeWin ? 'var(--green)' : 'var(--text)' }}>{homeTeam.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{homeTeam.owner_name}</div>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'sans-serif', color: homeWin ? 'var(--green)' : awayWin ? 'var(--muted)' : 'var(--gold)' }}>{homeScore}</div>
-              {homeWin && <span className="pill pill-win">W</span>}
-              {awayWin && <span className="pill pill-loss">L</span>}
-            </div>
-            <div style={{ textAlign: 'center', fontFamily: 'sans-serif', fontSize: 11, color: 'var(--muted)' }}>
-              <div>{label ?? 'vs'}</div>
-              {isPlayoff && seeds.length >= 4 && (
-                <div style={{ marginTop: 4, fontSize: 10, color: 'var(--gold)' }}>
-                  #{seeds.findIndex(s => s.team.id === homeId) + 1} vs #{seeds.findIndex(s => s.team.id === awayId) + 1}
-                </div>
-              )}
-              <div style={{ marginTop: 6, fontSize: 10, color: 'var(--muted)' }}>tap for box score</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'sans-serif', color: awayWin ? 'var(--green)' : 'var(--text)' }}>{awayTeam.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{awayTeam.owner_name}</div>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'sans-serif', color: awayWin ? 'var(--green)' : homeWin ? 'var(--muted)' : 'var(--gold)' }}>{awayScore}</div>
-              {awayWin && <span className="pill pill-win">W</span>}
-              {homeWin && <span className="pill pill-loss">L</span>}
-            </div>
-          </div>
-        )
-      })}
-
-      {weekMatchups.length === 0 && (
+      {weekMatchups.length === 0 ? (
         <div style={{ color: 'var(--muted)', fontSize: 13, fontFamily: 'sans-serif', padding: '20px 0' }}>
           No matchups scheduled for this week yet.
         </div>
-      )}
+      ) : (
+        <>
+          {/* Swipeable matchup header */}
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{ userSelect: 'none' }}
+          >
+            {/* Matchup selector dots + arrows */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
+              {/* Desktop prev arrow */}
+              <button
+                onClick={() => setActiveIdx(i => Math.max(i - 1, 0))}
+                disabled={activeIdx === 0}
+                style={{ background: 'none', border: 'none', cursor: activeIdx === 0 ? 'default' : 'pointer', color: activeIdx === 0 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px', fontFamily: 'sans-serif' }}
+              >
+                ‹
+              </button>
+              {/* Dots */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {weekMatchups.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveIdx(i)}
+                    style={{
+                      width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 4,
+                      background: i === activeIdx ? 'var(--gold)' : 'var(--navy-border)',
+                      border: 'none', cursor: 'pointer', padding: 0,
+                      transition: 'all .2s',
+                    }}
+                  />
+                ))}
+              </div>
+              {/* Desktop next arrow */}
+              <button
+                onClick={() => setActiveIdx(i => Math.min(i + 1, weekMatchups.length - 1))}
+                disabled={activeIdx === weekMatchups.length - 1}
+                style={{ background: 'none', border: 'none', cursor: activeIdx === weekMatchups.length - 1 ? 'default' : 'pointer', color: activeIdx === weekMatchups.length - 1 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px', fontFamily: 'sans-serif' }}
+              >
+                ›
+              </button>
+            </div>
 
-      {modal && (
-        <BoxScoreModal modal={modal} teams={teams} players={players} scores={scores}
-          rosters={rosters} snapshots={snapshots} schedule={schedule}
-          pllDoubleHeaders={pllDoubleHeaders} currentWeek={currentWeek}
-          onClose={() => setModal(null)} />
-      )}
-    </div>
-  )
-}
-
-function BoxScoreModal({ modal, teams, players, scores, rosters, snapshots, schedule, pllDoubleHeaders, currentWeek, onClose }: {
-  modal: ModalMatchup; teams: FantasyTeam[]; players: Player[]; scores: PlayerScore[]
-  rosters: RosterSlot[]; snapshots: RosterSnapshot[]; schedule: WeekSchedule[]
-  pllDoubleHeaders: PllDoubleHeader[]; currentWeek: number; onClose: () => void
-}) {
-  const { homeId, awayId, week, label } = modal
-  const homeTeam = teams.find(t => t.id === homeId)!
-  const awayTeam = teams.find(t => t.id === awayId)!
-
-  function getRosterWithScores(teamId: number) {
-    // Use snapshot for past weeks
-    let slots: Array<{ slot_index: number; player_id: number | null }>
-    if (week < currentWeek) {
-      const snap = snapshots.filter(s => s.team_id === teamId && s.week === week)
-      slots = snap.length > 0 ? snap : rosters.filter(r => r.team_id === teamId && r.slot_index <= 9)
-    } else {
-      slots = rosters.filter(r => r.team_id === teamId && r.slot_index <= 9)
-    }
-
-    return slots.sort((a, b) => a.slot_index - b.slot_index).map(slot => {
-      const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
-      const pts = player ? getPlayerWeekScore(player.id, week, scores, players, pllDoubleHeaders) : null
-      return { slot, player, pts }
-    })
-  }
-
-  const homeRoster = getRosterWithScores(homeId)
-  const awayRoster = getRosterWithScores(awayId)
-  const homeTotal = homeRoster.reduce((s, r) => s + (r.pts ?? 0), 0)
-  const awayTotal = awayRoster.reduce((s, r) => s + (r.pts ?? 0), 0)
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 200, padding: '40px 16px', overflowY: 'auto' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'var(--navy-card)', border: '1px solid var(--navy-border)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 700 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Week {week}{label ? ` · ${label}` : ''}</div>
-          <button className="btn btn-sm btn-outline" onClick={onClose}>✕ Close</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 12, marginBottom: 24, padding: '16px', background: 'var(--navy-light)', borderRadius: 8 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: 'sans-serif', color: homeTotal > awayTotal ? 'var(--green)' : 'var(--text)' }}>{homeTeam.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{homeTeam.owner_name}</div>
-            <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'sans-serif', color: homeTotal > awayTotal ? 'var(--green)' : 'var(--gold)' }}>{Math.round(homeTotal * 100) / 100}</div>
+            {/* Matchup score header */}
+            {homeTeam && awayTeam && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, padding: '16px 12px', background: 'var(--navy-card)', border: `1px solid ${current.homeId === myTeamId || current.awayId === myTeamId ? 'var(--gold-dark)' : 'var(--navy-border)'}`, borderRadius: 10, marginBottom: 20 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'sans-serif', color: homeWin ? 'var(--green)' : 'var(--text)', lineHeight: 1.2 }}>{homeTeam.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 6 }}>{homeTeam.owner_name}</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'sans-serif', color: homeWin ? 'var(--green)' : awayWin ? 'var(--muted)' : 'var(--gold)' }}>{homeTotal}</div>
+                  {homeWin && <div style={{ fontSize: 10, color: 'var(--green)', fontFamily: 'sans-serif', fontWeight: 600 }}>WIN</div>}
+                  {awayWin && <div style={{ fontSize: 10, color: 'var(--red)', fontFamily: 'sans-serif' }}>LOSS</div>}
+                </div>
+                <div style={{ textAlign: 'center', fontFamily: 'sans-serif', fontSize: 12, color: 'var(--muted)' }}>
+                  {current.label ?? 'vs'}
+                  {isPlayoff && seeds.length >= 4 && (
+                    <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 4 }}>
+                      #{seeds.findIndex(s => s.team.id === current.homeId) + 1} vs #{seeds.findIndex(s => s.team.id === current.awayId) + 1}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'sans-serif', color: awayWin ? 'var(--green)' : 'var(--text)', lineHeight: 1.2 }}>{awayTeam.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 6 }}>{awayTeam.owner_name}</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'sans-serif', color: awayWin ? 'var(--green)' : homeWin ? 'var(--muted)' : 'var(--gold)' }}>{awayTotal}</div>
+                  {awayWin && <div style={{ fontSize: 10, color: 'var(--green)', fontFamily: 'sans-serif', fontWeight: 600 }}>WIN</div>}
+                  {homeWin && <div style={{ fontSize: 10, color: 'var(--red)', fontFamily: 'sans-serif' }}>LOSS</div>}
+                </div>
+              </div>
+            )}
           </div>
-          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>vs</div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: 'sans-serif', color: awayTotal > homeTotal ? 'var(--green)' : 'var(--text)' }}>{awayTeam.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{awayTeam.owner_name}</div>
-            <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'sans-serif', color: awayTotal > homeTotal ? 'var(--green)' : 'var(--gold)' }}>{Math.round(awayTotal * 100) / 100}</div>
-          </div>
-        </div>
-        <div className="grid2" style={{ gap: 16 }}>
-          {[{ team: homeTeam, roster: homeRoster }, { team: awayTeam, roster: awayRoster }].map(({ team, roster }) => (
-            <div key={team.id}>
-              <div className="section-title">{team.name}</div>
-              {roster.map(({ slot, player, pts }) => (
-                <div key={slot.slot_index} style={{ display: 'grid', gridTemplateColumns: '50px minmax(0,1fr) 40px', gap: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'sans-serif', borderBottom: '1px solid var(--navy-border)' }}>
-                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center' }}>{SLOT_LABELS[slot.slot_index]}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {player && <span className={`pos pos-${player.position}`}>{player.position}</span>}
-                    <span style={{ color: player ? 'var(--text)' : 'var(--muted)' }}>{player ? shortName(player.name) : '—'}</span>
+
+          {/* Box score - side by side */}
+          {homeTeam && awayTeam && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[{ team: homeTeam, roster: homeRoster, total: homeTotal }, { team: awayTeam, roster: awayRoster, total: awayTotal }].map(({ team, roster, total }) => (
+                <div key={team.id}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6, textAlign: 'center' }}>
+                    {team.name}
                   </div>
-                  <div style={{ textAlign: 'right', color: 'var(--gold)', fontWeight: 600 }}>
-                    {pts != null && player ? pts : ''}
+                  {roster.map(({ slot, player, pts }) => (
+                    <div key={slot.slot_index} style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '5px 4px', fontSize: 11, fontFamily: 'sans-serif',
+                      borderBottom: '1px solid var(--navy-border)',
+                    }}>
+                      {player
+                        ? <span className={`pos pos-${player.position}`} style={{ fontSize: 9, flexShrink: 0 }}>{player.position}</span>
+                        : <span style={{ width: 24, flexShrink: 0 }} />
+                      }
+                      <span style={{ flex: 1, color: player ? 'var(--text)' : 'var(--muted)', fontSize: 11, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {player ? shortName(player.name) : '—'}
+                      </span>
+                      <span style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>
+                        {pts != null && player ? pts : ''}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Total */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px 0', fontFamily: 'sans-serif' }}>
+                    <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Total</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)' }}>{total}</span>
                   </div>
                 </div>
               ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '50px minmax(0,1fr) 40px', gap: 6, padding: '8px 8px 0', fontFamily: 'sans-serif' }}>
-                <div />
-                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Total</div>
-                <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--gold)' }}>
-                  {Math.round(roster.reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100}
-                </div>
-              </div>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
