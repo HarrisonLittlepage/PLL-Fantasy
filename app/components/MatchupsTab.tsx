@@ -31,7 +31,6 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
 
   const seeds = getPlayoffSeeds(teams, rosters, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots)
 
-  // Build matchup list for this week
   let weekMatchups: Array<{ homeId: number; awayId: number; label?: string }> = []
   if (isPlayoff) {
     if (viewWeek === 9) {
@@ -46,11 +45,9 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     weekMatchups = matchups.filter(m => m.week === viewWeek).map(m => ({ homeId: m.home_team_id, awayId: m.away_team_id }))
   }
 
-  // Default to user's own matchup
   const myMatchupIdx = weekMatchups.findIndex(m => m.homeId === myTeamId || m.awayId === myTeamId)
   const [activeIdx, setActiveIdx] = useState(() => myMatchupIdx >= 0 ? myMatchupIdx : 0)
 
-  // Reset activeIdx when week changes
   const handleWeekChange = (wk: number) => {
     setViewWeek(wk)
     const newMatchups = matchups.filter(m => m.week === wk).map(m => ({ homeId: m.home_team_id, awayId: m.away_team_id }))
@@ -58,7 +55,6 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     setActiveIdx(myIdx >= 0 ? myIdx : 0)
   }
 
-  // Swipe handling
   const touchStartX = useRef<number | null>(null)
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -79,9 +75,9 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     let slots: Array<{ slot_index: number; player_id: number | null }>
     if (viewWeek < currentWeek) {
       const snap = snapshots.filter(s => s.team_id === teamId && s.week === viewWeek)
-      slots = snap.length > 0 ? snap : rosters.filter(r => r.team_id === teamId && r.slot_index < 10)
+      slots = snap.length > 0 ? snap : rosters.filter(r => r.team_id === teamId && r.slot_index <= 13)
     } else {
-      slots = rosters.filter(r => r.team_id === teamId && r.slot_index < 10)
+      slots = rosters.filter(r => r.team_id === teamId && r.slot_index <= 13)
     }
     return slots.sort((a, b) => a.slot_index - b.slot_index).map(slot => {
       const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
@@ -100,8 +96,34 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
 
   const homeRoster = current ? getRosterWithScores(current.homeId) : []
   const awayRoster = current ? getRosterWithScores(current.awayId) : []
-  const homeTotal = Math.round(homeRoster.reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
-  const awayTotal = Math.round(awayRoster.reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
+  const homeTotal = Math.round(homeRoster.filter(r => r.slot.slot_index < 10).reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
+  const awayTotal = Math.round(awayRoster.filter(r => r.slot.slot_index < 10).reduce((s, r) => s + (r.pts ?? 0), 0) * 100) / 100
+
+  const playerRow = (player: Player | null, pts: number | null, isBench: boolean) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 5,
+      padding: isBench ? '4px 4px' : '5px 4px',
+      fontSize: isBench ? 10 : 11, fontFamily: 'sans-serif',
+      borderBottom: '1px solid var(--navy-border)',
+      opacity: isBench ? 0.6 : 1,
+    }}>
+      {player
+        ? <span className={`pos pos-${player.position}`} style={{ fontSize: isBench ? 8 : 9, flexShrink: 0 }}>{player.position}</span>
+        : <span style={{ width: 24, flexShrink: 0 }} />
+      }
+      <span style={{ flex: 1, color: player ? 'var(--text)' : 'var(--muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {player ? shortName(player.name) : '—'}
+        {player && player.position !== 'G' && player.position !== 'FO' && (
+          <span style={{ color: 'var(--muted)', fontSize: isBench ? 8 : 9, marginLeft: 4 }}>{player.pll_team}</span>
+        )}
+      </span>
+      {!isBench && (
+        <span style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>
+          {pts != null && player ? pts : ''}
+        </span>
+      )}
+    </div>
+  )
 
   return (
     <div>
@@ -133,47 +155,29 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
       ) : (
         <>
           {/* Swipeable matchup header */}
-          <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            style={{ userSelect: 'none' }}
-          >
-            {/* Matchup selector dots + arrows */}
+          <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ userSelect: 'none' }}>
+            {/* Dots + arrows */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
-              {/* Desktop prev arrow */}
-              <button
-                onClick={() => setActiveIdx(i => Math.max(i - 1, 0))}
-                disabled={activeIdx === 0}
-                style={{ background: 'none', border: 'none', cursor: activeIdx === 0 ? 'default' : 'pointer', color: activeIdx === 0 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px', fontFamily: 'sans-serif' }}
-              >
+              <button onClick={() => setActiveIdx(i => Math.max(i - 1, 0))} disabled={activeIdx === 0}
+                style={{ background: 'none', border: 'none', cursor: activeIdx === 0 ? 'default' : 'pointer', color: activeIdx === 0 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px' }}>
                 ‹
               </button>
-              {/* Dots */}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {weekMatchups.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveIdx(i)}
-                    style={{
-                      width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 4,
-                      background: i === activeIdx ? 'var(--gold)' : 'var(--navy-border)',
-                      border: 'none', cursor: 'pointer', padding: 0,
-                      transition: 'all .2s',
-                    }}
-                  />
+                  <button key={i} onClick={() => setActiveIdx(i)} style={{
+                    width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 4,
+                    background: i === activeIdx ? 'var(--gold)' : 'var(--navy-border)',
+                    border: 'none', cursor: 'pointer', padding: 0, transition: 'all .2s',
+                  }} />
                 ))}
               </div>
-              {/* Desktop next arrow */}
-              <button
-                onClick={() => setActiveIdx(i => Math.min(i + 1, weekMatchups.length - 1))}
-                disabled={activeIdx === weekMatchups.length - 1}
-                style={{ background: 'none', border: 'none', cursor: activeIdx === weekMatchups.length - 1 ? 'default' : 'pointer', color: activeIdx === weekMatchups.length - 1 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px', fontFamily: 'sans-serif' }}
-              >
+              <button onClick={() => setActiveIdx(i => Math.min(i + 1, weekMatchups.length - 1))} disabled={activeIdx === weekMatchups.length - 1}
+                style={{ background: 'none', border: 'none', cursor: activeIdx === weekMatchups.length - 1 ? 'default' : 'pointer', color: activeIdx === weekMatchups.length - 1 ? 'var(--navy-border)' : 'var(--muted)', fontSize: 18, padding: '0 4px' }}>
                 ›
               </button>
             </div>
 
-            {/* Matchup score header */}
+            {/* Score header */}
             {homeTeam && awayTeam && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, padding: '16px 12px', background: 'var(--navy-card)', border: `1px solid ${current.homeId === myTeamId || current.awayId === myTeamId ? 'var(--gold-dark)' : 'var(--navy-border)'}`, borderRadius: 10, marginBottom: 20 }}>
                 <div style={{ textAlign: 'center' }}>
@@ -202,7 +206,7 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
             )}
           </div>
 
-          {/* Box score - side by side */}
+          {/* Box score */}
           {homeTeam && awayTeam && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[{ team: homeTeam, roster: homeRoster, total: homeTotal }, { team: awayTeam, roster: awayRoster, total: awayTotal }].map(({ team, roster, total }) => (
@@ -210,29 +214,23 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6, textAlign: 'center' }}>
                     {team.name}
                   </div>
-                  {roster.map(({ slot, player, pts }) => (
-                    <div key={slot.slot_index} style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      padding: '5px 4px', fontSize: 11, fontFamily: 'sans-serif',
-                      borderBottom: '1px solid var(--navy-border)',
-                    }}>
-                      {player
-                        ? <span className={`pos pos-${player.position}`} style={{ fontSize: 9, flexShrink: 0 }}>{player.position}</span>
-                        : <span style={{ width: 24, flexShrink: 0 }} />
-                      }
-                      <span style={{ flex: 1, color: player ? 'var(--text)' : 'var(--muted)', fontSize: 11, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {player ? shortName(player.name) : '—'}
-                      </span>
-                      <span style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>
-                        {pts != null && player ? pts : ''}
-                      </span>
-                    </div>
+
+                  {/* Starters */}
+                  {roster.filter(r => r.slot.slot_index < 10).map(({ slot, player, pts }) => (
+                    <div key={slot.slot_index}>{playerRow(player, pts, false)}</div>
                   ))}
+
                   {/* Total */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px 0', fontFamily: 'sans-serif' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px', fontFamily: 'sans-serif', borderBottom: '1px solid var(--navy-border)' }}>
                     <span style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Total</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold)' }}>{total}</span>
                   </div>
+
+                  {/* Bench */}
+                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 4px 2px', fontFamily: 'sans-serif' }}>Bench</div>
+                  {roster.filter(r => r.slot.slot_index >= 10).map(({ slot, player, pts }) => (
+                    <div key={slot.slot_index}>{playerRow(player, pts, true)}</div>
+                  ))}
                 </div>
               ))}
             </div>
