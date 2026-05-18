@@ -30,11 +30,14 @@ body {
 .app-container { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
 
 /* Navigation */
-.nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--navy-border); margin-bottom: 22px; gap: 8px; flex-wrap: wrap; }
+.nav { display: flex; flex-direction: column; padding: 12px 0 0 0; border-bottom: 1px solid var(--navy-border); margin-bottom: 18px; gap: 0; }
+.nav-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
 .nav-logo { font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
 .nav-logo span { color: var(--white); font-weight: 300; }
-.nav-tabs { display: flex; gap: 3px; flex-wrap: wrap; }
-.tab { padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: none; background: none; font-family: sans-serif; transition: all .15s; }
+.nav-team-name { font-size: 14px; font-weight: 700; color: var(--white); font-family: sans-serif; }
+.nav-tabs { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none; white-space: nowrap; }
+.nav-tabs::-webkit-scrollbar { display: none; }
+.tab { padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: none; background: none; font-family: sans-serif; transition: all .15s; flex-shrink: 0; }
 .tab:hover { color: var(--text); background: var(--navy-light); }
 .tab.active { color: var(--gold); background: var(--navy-light); border: 1px solid var(--navy-border); }
 .tab.comm { color: var(--comm-purple); }

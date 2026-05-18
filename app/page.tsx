@@ -110,13 +110,17 @@ export default function Home() {
 
   const sharedProps = {
     teams, players, scores, rosters, snapshots, settings, schedule,
-    matchups, gamePicks, pllDoubleHeaders, onRefresh: loadData
+    matchups, gamePicks, pllDoubleHeaders, onRefresh: loadData,
+    onSignOut: handleSignOut,
   }
 
   return (
     <div className="app-container">
       <div className="nav">
-        <div className="nav-logo">PLL Fantasy<span> App</span></div>
+        <div className="nav-top">
+          <div className="nav-logo">PLL Fantasy<span> App</span></div>
+          <div className="nav-team-name">{myTeam ? myTeam.name : profile.display_name}</div>
+        </div>
         <div className="nav-tabs">
           {navTabs.map(t => (
             <button
@@ -127,14 +131,6 @@ export default function Home() {
               {t.label}
             </button>
           ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: isCommissioner ? '#a78bfa' : 'var(--green)', display: 'inline-block', marginRight: 6 }} />
-            {myTeam ? myTeam.name : profile.display_name}
-            {isCommissioner && <span style={{ marginLeft: 6, fontSize: 10, color: '#a78bfa' }}>(Comm)</span>}
-          </div>
-          <button className="btn btn-sm btn-outline" onClick={handleSignOut}>Sign out</button>
         </div>
       </div>
 
