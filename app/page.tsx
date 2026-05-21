@@ -15,6 +15,7 @@ import FreeAgentsTab from './components/FreeAgentsTab'
 import LeagueTab from './components/LeagueTab'
 import CommissionerTab from './components/CommissionerTab'
 import WaiverTab from './components/WaiverTab'
+import TransactionsTab from './components/TransactionsTab'
 
 export default function Home() {
   const router = useRouter()
@@ -105,6 +106,7 @@ export default function Home() {
     { id: 'waivers', label: 'Waivers', hidden: !profile.team_id && !isCommissioner },
     { id: 'fa', label: 'Free Agents', hidden: !profile.team_id },
     { id: 'rosters', label: 'Rosters' },
+    { id: 'transactions', label: 'Transactions' },
     { id: 'commissioner', label: 'Commissioner', commOnly: true },
   ].filter(t => !t.hidden && (!t.commOnly || isCommissioner))
 
@@ -139,6 +141,7 @@ export default function Home() {
       {tab === 'waivers' && <WaiverTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'fa' && profile.team_id && <FreeAgentsTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'rosters' && <LeagueTab {...sharedProps} />}
+      {tab === 'transactions' && <TransactionsTab teams={teams} players={players} onRefresh={loadData} />}
       {tab === 'commissioner' && isCommissioner && <CommissionerTab {...sharedProps} />}
     </div>
   )

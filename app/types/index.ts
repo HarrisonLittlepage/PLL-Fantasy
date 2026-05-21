@@ -57,6 +57,15 @@ export interface LeagueSettings {
   waiver_current_idx: number
 }
 
+export interface Transaction {
+  id: number
+  team_id: number
+  type: 'add' | 'drop'
+  player_id: number
+  transaction_group: string
+  created_at: string
+}
+
 export interface WeekSchedule {
   week: number
   week_type: 'regular' | 'playoffs'
