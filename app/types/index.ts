@@ -97,7 +97,7 @@ export const SLOT_LABELS = [
 ]
 
 export const SLOT_POSITIONS = [
-  'A', 'A', 'M', 'M', 'D', 'D', 'FO', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
+  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN'
 ]
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
