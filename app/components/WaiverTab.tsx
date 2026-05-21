@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { shortName } from '../types'
+import DropPicker from './DropPicker'
 
 interface Props {
   myTeamId: number | null
@@ -26,7 +27,7 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
-  const [pickingPlayer, setPickingPlayer] = useState<Player | null>(null)
+  const [dropPickerPlayer, setDropPickerPlayer] = useState<Player | null>(null)
 
   const week = settings.current_week
   const waiverOpen = settings.waiver_state === 'open'
@@ -44,14 +45,18 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
     !allOwnedIds.has(p.id) &&
     (filter === 'ALL' || p.position === filter) &&
     (search === '' || p.name.toLowerCase().includes(search.toLowerCase()))
-  ).sort((a, b) => b.avg_pts - a.avg_pts)
+  ).sort((a, b) => Number(b.avg_pts) - Number(a.avg_pts))
 
   function showMsg(text: string, type: 'success' | 'error') {
     setMsg({ text, type }); setTimeout(() => setMsg(null), 4000)
   }
 
   async function handlePick(player: Player) {
-    if (isFull) { showMsg('Roster is full — drop a player first', 'error'); return }
+    if (isFull) {
+      setDropPickerPlayer(player)
+      return
+    }
+
     const benchSlot = [10, 11, 12, 13].find(i => {
       const slot = myRoster.find(r => r.slot_index === i)
       return !slot || slot.player_id === null
@@ -60,17 +65,28 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
 
     setSaving(true)
     const res = await apiFetch('/api/roster/waiver-pick', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ player_id: player.id, slot_index: benchSlot }),
+    })
+    if (res.ok) { await onRefresh(); showMsg(`${shortName(player.name)} added to your bench`, 'success') }
+    else { const d = await res.json(); showMsg(d.error ?? 'Error making pick', 'error') }
+    setSaving(false)
+  }
+
+  async function handleAddDrop(dropSlotIndex: number) {
+    if (!dropPickerPlayer) return
+    setSaving(true)
+    const res = await apiFetch('/api/roster/add-drop', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ add_player_id: dropPickerPlayer.id, drop_slot_index: dropSlotIndex, is_waiver: true }),
     })
     if (res.ok) {
       await onRefresh()
-      showMsg(`${shortName(player.name)} added to your bench`, 'success')
-      setPickingPlayer(null)
+      showMsg(`${shortName(dropPickerPlayer.name)} added`, 'success')
+      setDropPickerPlayer(null)
     } else {
       const d = await res.json()
-      showMsg(d.error ?? 'Error making pick', 'error')
+      showMsg(d.error ?? 'Error', 'error')
     }
     setSaving(false)
   }
@@ -78,8 +94,7 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
   async function handlePass() {
     setSaving(true)
     const res = await apiFetch('/api/roster/waiver-pass', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
     if (res.ok) { await onRefresh(); showMsg('You passed your turn', 'success') }
@@ -87,30 +102,22 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
     setSaving(false)
   }
 
-  const weekPts = (p: Player) =>
-    scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
+  const weekPts = (p: Player) => scores.find(s => s.player_id === p.id && s.week === week && s.game === 'A')?.points ?? null
 
   if (!waiverOpen) {
     return (
       <div style={{ padding: '40px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🏒</div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', fontFamily: 'sans-serif', marginBottom: 8 }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
           Waivers are closed
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
-          The commissioner will open waivers after the week is complete.
         </div>
       </div>
     )
   }
 
-  // Build the pick order display — show remaining picks
-  const remainingOrder = order.slice(idx % order.length)
-    .concat(order.slice(0, idx % order.length))
+  const remainingOrder = order.slice(idx % order.length).concat(order.slice(0, idx % order.length))
 
   return (
     <div>
-      {/* Turn order */}
       <div style={{ marginBottom: 18 }}>
         <div className="section-title">Waiver Pick Order</div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4, scrollbarWidth: 'none' }}>
@@ -123,25 +130,21 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
                 background: isCurrent ? 'var(--gold)' : 'var(--navy-light)',
                 color: isCurrent ? '#0a0f1a' : 'var(--muted)',
                 border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--navy-border)'}`,
-                fontWeight: isCurrent ? 700 : 400,
-                 whiteSpace: 'nowrap',
-                  }}>
-                {team?.name ?? `Team ${teamId}`}
+                fontWeight: isCurrent ? 700 : 400, whiteSpace: 'nowrap',
+              }}>
+                {`${i + 1}. `}{team?.name ?? `Team ${teamId}`}
               </div>
             )
           })}
         </div>
       </div>
 
-      {/* Your turn banner */}
       {isMyTurn && (
         <div style={{ padding: '12px 16px', background: '#1a3a2a', border: '1px solid var(--green)', borderRadius: 8, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)', fontFamily: 'sans-serif' }}>
             It's your turn to pick!
           </div>
-          <button className="btn btn-sm btn-outline" onClick={handlePass} disabled={saving}>
-            Pass
-          </button>
+          <button className="btn btn-sm btn-outline" onClick={handlePass} disabled={saving}>Pass</button>
         </div>
       )}
 
@@ -151,7 +154,6 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       )}
 
-      {/* Feedback */}
       {msg && (
         <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 12,
           background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a',
@@ -161,14 +163,6 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       )}
 
-      {/* Full roster warning */}
-      {isFull && isMyTurn && (
-        <div style={{ padding: '8px 12px', background: '#3a1a1a', border: '1px solid var(--red)', borderRadius: 6, fontSize: 12, color: '#e06060', fontFamily: 'sans-serif', marginBottom: 12 }}>
-          Your roster is full (14/14) — drop a player before picking.
-        </div>
-      )}
-
-      {/* Free agents */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input className="input" style={{ flex: 1, minWidth: 140 }} placeholder="Search players..."
           value={search} onChange={e => setSearch(e.target.value)} />
@@ -199,15 +193,26 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
             </div>
             <button
               className="btn btn-sm btn-success"
-              disabled={saving || !isMyTurn || isFull}
+              disabled={saving || !isMyTurn}
               onClick={() => handlePick(p)}
-              style={!isMyTurn || isFull ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+              style={!isMyTurn ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
-              {!isMyTurn ? '—' : 'Pick'}
+              {!isMyTurn ? '—' : 'Add'}
             </button>
           </div>
         )
       })}
+
+      {dropPickerPlayer && (
+        <DropPicker
+          addingPlayer={dropPickerPlayer}
+          myRoster={myRoster}
+          players={players}
+          saving={saving}
+          onConfirm={handleAddDrop}
+          onCancel={() => setDropPickerPlayer(null)}
+        />
+      )}
     </div>
   )
 }

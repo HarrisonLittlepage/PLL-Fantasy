@@ -30,14 +30,11 @@ body {
 .app-container { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
 
 /* Navigation */
-.nav { display: flex; flex-direction: column; padding: 12px 0 0 0; border-bottom: 1px solid var(--navy-border); margin-bottom: 18px; gap: 0; }
-.nav-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--navy-border); margin-bottom: 22px; gap: 8px; flex-wrap: wrap; }
 .nav-logo { font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
-@media (max-width: 480px) { .nav-logo { font-size: 15px; letter-spacing: 0.5px; } }
 .nav-logo span { color: var(--white); font-weight: 300; }
-.nav-tabs { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none; white-space: nowrap; }
-.nav-tabs::-webkit-scrollbar { display: none; }
-.tab { padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: none; background: none; font-family: sans-serif; transition: all .15s; flex-shrink: 0; }
+.nav-tabs { display: flex; gap: 3px; flex-wrap: wrap; }
+.tab { padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted); border: none; background: none; font-family: sans-serif; transition: all .15s; }
 .tab:hover { color: var(--text); background: var(--navy-light); }
 .tab.active { color: var(--gold); background: var(--navy-light); border: 1px solid var(--navy-border); }
 .tab.comm { color: var(--comm-purple); }
@@ -138,3 +135,4 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--navy-border); border-radius: 2px; }
+@media (min-width: 641px) { .drop-picker-panel { bottom: auto !important; left: 50% !important; right: auto !important; top: 50% !important; transform: translate(-50%, -50%) !important; width: 480px !important; max-height: 80vh !important; border-radius: 14px !important; } }
