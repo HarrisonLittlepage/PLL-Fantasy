@@ -3,9 +3,8 @@
 
 import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
-import { SLOT_LABELS } from '../types'
-import { getTeamWeekScore, calcTeamRecord, getPlayerWeekScore } from '../lib/scoring'
-import { shortName } from '../types'
+import { SLOT_LABELS, shortName } from '../types'
+import { calcTeamRecord } from '../lib/scoring'
 
 interface Props {
   teams: FantasyTeam[]
@@ -21,7 +20,7 @@ interface Props {
   onRefresh: () => void
 }
 
-export default function LeagueTab({ teams, players, scores, rosters, snapshots, settings, schedule, matchups, pllDoubleHeaders }: Props) {
+export default function LeagueTab({ teams, players, rosters, snapshots, settings, schedule, matchups, scores, pllDoubleHeaders }: Props) {
   const [expanded, setExpanded] = useState<number | null>(null)
   const week = settings.current_week
 
@@ -35,9 +34,17 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {teams.map(team => {
           const rec = calcTeamRecord(team.id, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
-          const score = getTeamWeekScore(team.id, week, rosters, scores, players, pllDoubleHeaders, week, snapshots)
           const teamRoster = rosters.filter(r => r.team_id === team.id).sort((a, b) => a.slot_index - b.slot_index)
           const isExpanded = expanded === team.id
+
+          // Total avg pts from starters only
+          const starterAvg = teamRoster
+            .filter(s => s.slot_index < 10 && s.player_id)
+            .reduce((sum, s) => {
+              const p = players.find(pl => pl.id === s.player_id)
+              return sum + (p ? Number(p.avg_pts) : 0)
+            }, 0)
+          const starterAvgRounded = Math.round(starterAvg * 100) / 100
 
           return (
             <div key={team.id} style={{ border: '1px solid var(--navy-border)', borderRadius: 8, overflow: 'hidden' }}>
@@ -53,8 +60,8 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', marginRight: 12 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{score}</div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Wk {week}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)', fontFamily: 'sans-serif' }}>{starterAvgRounded}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Avg</div>
                 </div>
                 <div style={{ fontSize: 16, color: 'var(--muted)', userSelect: 'none' }}>
                   {isExpanded ? '⌄' : '⌃'}
@@ -70,7 +77,7 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                   </div>
                   {teamRoster.filter(s => s.slot_index < 10).map(slot => {
                     const p = slot.player_id ? players.find(pl => pl.id === slot.player_id) ?? null : null
-                    const pts = p ? getPlayerWeekScore(p.id, week, scores, players, pllDoubleHeaders) : null
+                    const avg = p ? Math.round(Number(p.avg_pts) * 100) / 100 : null
                     return (
                       <div key={slot.slot_index} style={{
                         display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 36px',
@@ -88,7 +95,7 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                           </span>
                         </div>
                         <div style={{ textAlign: 'right', color: 'var(--gold)', fontWeight: 600, fontSize: 12 }}>
-                          {pts != null && p ? pts : ''}
+                          {avg != null && p ? avg : ''}
                         </div>
                       </div>
                     )
@@ -99,6 +106,7 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                   </div>
                   {teamRoster.filter(s => s.slot_index >= 10).map(slot => {
                     const p = slot.player_id ? players.find(pl => pl.id === slot.player_id) ?? null : null
+                    const avg = p ? Math.round(Number(p.avg_pts) * 100) / 100 : null
                     return (
                       <div key={slot.slot_index} style={{
                         display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 36px',
@@ -111,12 +119,14 @@ export default function LeagueTab({ teams, players, scores, rosters, snapshots, 
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {p && <span className={`pos pos-${p.position}`}>{p.position}</span>}
-                         <span style={{ color: p ? 'var(--text)' : 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span>{p ? shortName(p.name) : '—'}</span>
+                          <span style={{ color: p ? 'var(--text)' : 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span>{p ? shortName(p.name) : '—'}</span>
                             {p && <span style={{ color: 'var(--muted)', fontSize: 10 }}>{p.pll_team}</span>}
                           </span>
                         </div>
-                        <div />
+                        <div style={{ textAlign: 'right', color: 'var(--muted)', fontSize: 11 }}>
+                          {avg != null && p ? avg : ''}
+                        </div>
                       </div>
                     )
                   })}
