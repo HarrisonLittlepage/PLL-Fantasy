@@ -57,7 +57,7 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
       return
     }
 
-    const benchSlot = [10, 11, 12, 13].find(i => {
+    const benchSlot = [10, 11, 12, 13, 14].find(i => {
       const slot = myRoster.find(r => r.slot_index === i)
       return !slot || slot.player_id === null
     })

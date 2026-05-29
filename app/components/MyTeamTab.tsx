@@ -25,6 +25,7 @@ interface Props {
 
 function canFitInSlot(player: Player, slotIndex: number): boolean {
   const slotPos = SLOT_POSITIONS[slotIndex]
+  if (slotPos === 'BN') return true
   return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
 }
 
@@ -277,7 +278,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>
         {Array.from({ length: 10 }, (_, i) => slotRow(i))}
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 14, marginBottom: 6 }}>Bench</div>
-        {Array.from({ length: Math.max(4, savedRoster.filter(r => r.slot_index >= 10).length) }, (_, i) => slotRow(10 + i))}
+        {Array.from({ length: 5 }, (_, i) => slotRow(10 + i))}
       </div>
     </div>
   )
