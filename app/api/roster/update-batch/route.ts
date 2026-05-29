@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   for (const slot of slots) {
     const { slot_index, player_id } = slot
-    if (slot_index < 0 || slot_index > 13)
+    if (slot_index < 0 || slot_index > 17)
       return NextResponse.json({ error: `Invalid slot index: ${slot_index}` }, { status: 400 })
 
     if (player_id) {
