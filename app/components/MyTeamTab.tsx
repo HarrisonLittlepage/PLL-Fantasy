@@ -44,7 +44,6 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const lockedTeams: string[] = settings.locked_pll_teams ?? []
   const myTeam = teams.find(t => t.id === myTeamId)
   const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
-  console.log('savedRoster bench:', savedRoster.filter(r => r.slot_index >= 10).map(r => `slot${r.slot_index}:${r.player_id}`))
   const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders, week, snapshots)
   const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
 
