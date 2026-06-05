@@ -104,7 +104,7 @@ export default function LeagueTab({ teams, players, rosters, snapshots, settings
                   <div style={{ padding: '6px 14px 2px', fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'sans-serif', marginTop: 4 }}>
                     Bench
                   </div>
-                  {teamRoster.filter(s => s.slot_index >= 10).map(slot => {
+                  {teamRoster.filter(s => s.slot_index >= 10 && s.player_id !== null).map(slot => {
                     const p = slot.player_id ? players.find(pl => pl.id === slot.player_id) ?? null : null
                     const avg = p ? Math.round(Number(p.avg_pts) * 100) / 100 : null
                     return (
