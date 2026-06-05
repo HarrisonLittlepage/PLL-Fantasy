@@ -99,17 +99,27 @@ export interface TeamRecord {
   points_for: number
 }
 
-export const SLOT_LABELS = [
+const BASE_SLOT_LABELS = [
   'Faceoff', 'Attack', 'Attack', 'Midfield', 'Midfield',
-  'Defense', 'Defense', 'Goalie',
-  'Flex', 'Flex', 'Bench', 'Bench', 'Bench', 'Bench',
-  'Bench', 'Bench', 'Bench', 'Bench'
+  'Defense', 'Defense', 'Goalie', 'Flex', 'Flex'
+]
+const BASE_SLOT_POSITIONS = [
+  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX'
 ]
 
-export const SLOT_POSITIONS = [
-  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX', 'BN', 'BN', 'BN', 'BN',
-  'BN', 'BN', 'BN', 'BN'
-]
+export function getSlotLabel(index: number): string {
+  if (index < 10) return BASE_SLOT_LABELS[index]
+  return 'Bench'
+}
+
+export function getSlotPosition(index: number): string {
+  if (index < 10) return BASE_SLOT_POSITIONS[index]
+  return 'BN'
+}
+
+// Keep arrays for backward compatibility
+export const SLOT_LABELS = BASE_SLOT_LABELS
+export const SLOT_POSITIONS = BASE_SLOT_POSITIONS
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
   A:    ['A'],

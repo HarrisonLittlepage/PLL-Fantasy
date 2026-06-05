@@ -57,11 +57,9 @@ export default function WaiverTab({ myTeamId, teams, players, scores, rosters, s
       return
     }
 
-    const benchSlot = [10, 11, 12, 13, 14].find(i => {
-      const slot = myRoster.find(r => r.slot_index === i)
-      return !slot || slot.player_id === null
-    })
-    if (benchSlot === undefined) { showMsg('Bench is full — move someone to a starter slot first', 'error'); return }
+    const usedBenchSlots = new Set(myRoster.filter(r => r.slot_index >= 10 && r.player_id !== null).map(r => r.slot_index))
+    let benchSlot = 10
+    while (usedBenchSlots.has(benchSlot)) benchSlot++
 
     setSaving(true)
     const res = await apiFetch('/api/roster/waiver-pick', {

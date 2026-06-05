@@ -56,11 +56,10 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
       return
     }
 
-    const benchSlot = [10, 11, 12, 13, 14].find(i => {
-      const slot = myRoster.find(r => r.slot_index === i)
-      return !slot || slot.player_id === null
-    })
-    if (benchSlot === undefined) { showMsg('Bench is full — move a bench player to a starter slot first', 'error'); return }
+    // Find first open bench slot dynamically
+    const usedBenchSlots = new Set(myRoster.filter(r => r.slot_index >= 10 && r.player_id !== null).map(r => r.slot_index))
+    let benchSlot = 10
+    while (usedBenchSlots.has(benchSlot)) benchSlot++
 
     setSaving(true)
     const res = await apiFetch('/api/roster/update-batch', {

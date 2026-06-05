@@ -2,7 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient, getUserFromRequest } from '../../../lib/supabase-server'
 
-const SLOT_POSITIONS = ['FO','A','A','M','M','D','D','G','FLEX','FLEX','BN','BN','BN','BN']
+const BASE_SLOT_POSITIONS = ['FO','A','A','M','M','D','D','G','FLEX','FLEX']
+function getSlotPosition(index: number): string {
+  if (index < 10) return BASE_SLOT_POSITIONS[index]
+  return 'BN'
+}
 const ELIGIBLE: Record<string, string[]> = {
   FO:   ['FO'],
   A:    ['A'],
@@ -48,14 +52,14 @@ export async function POST(req: NextRequest) {
 
   for (const slot of slots) {
     const { slot_index, player_id } = slot
-    if (slot_index < 0 || slot_index > 17)
+    if (slot_index < 0)
       return NextResponse.json({ error: `Invalid slot index: ${slot_index}` }, { status: 400 })
 
     if (player_id) {
       const player = playerMap[player_id]
       if (!player) return NextResponse.json({ error: `Player ${player_id} not found` }, { status: 400 })
-      if (!ELIGIBLE[SLOT_POSITIONS[slot_index]]?.includes(player.position))
-        return NextResponse.json({ error: `${player.position} cannot play ${SLOT_POSITIONS[slot_index]}` }, { status: 400 })
+      if (!ELIGIBLE[getSlotPosition(slot_index)]?.includes(player.position))
+        return NextResponse.json({ error: `${player.position} cannot play ${getSlotPosition(slot_index)}` }, { status: 400 })
       if (lockedTeams.includes(player.pll_team))
         return NextResponse.json({ error: `${player.pll_team} players are locked during live games` }, { status: 423 })
       const { data: other } = await admin.from('rosters').select('team_id').eq('player_id', player_id).neq('team_id', profile.team_id).single()

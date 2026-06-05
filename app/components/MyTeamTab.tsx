@@ -4,7 +4,7 @@
 import { apiFetch } from '../lib/api-fetch'
 import { useState } from 'react'
 import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
-import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS, shortName } from '../types'
+import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS, shortName, getSlotLabel, getSlotPosition } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
 
 interface Props {
@@ -24,7 +24,7 @@ interface Props {
 }
 
 function canFitInSlot(player: Player, slotIndex: number): boolean {
-  const slotPos = SLOT_POSITIONS[slotIndex]
+  const slotPos = getSlotPosition(slotIndex)
   if (slotPos === 'BN') return true
   return !!(ELIGIBLE_POSITIONS[slotPos]?.includes(player.position))
 }
@@ -44,6 +44,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const lockedTeams: string[] = settings.locked_pll_teams ?? []
   const myTeam = teams.find(t => t.id === myTeamId)
   const savedRoster = rosters.filter(r => r.team_id === myTeamId).sort((a, b) => a.slot_index - b.slot_index)
+  console.log('savedRoster bench:', savedRoster.filter(r => r.slot_index >= 10).map(r => `slot${r.slot_index}:${r.player_id}`))
   const weekScore = getTeamWeekScore(myTeamId, week, rosters, scores, players, pllDoubleHeaders, week, snapshots)
   const record = calcTeamRecord(myTeamId, week - 1, rosters, scores, players, schedule, matchups, pllDoubleHeaders, week, snapshots)
 
@@ -82,11 +83,11 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       setSelectedSlot(null); return
     }
     if (!canFitInSlot(fromPlayer, slotIndex)) {
-      showMsg(`${shortName(fromPlayer.name)} (${fromPlayer.position}) can't play ${SLOT_LABELS[slotIndex]}`, 'error')
+      showMsg(`${shortName(fromPlayer.name)} (${fromPlayer.position}) can't play ${getSlotLabel(slotIndex)}`, 'error')
       setSelectedSlot(null); return
     }
     if (toPlayer && !canFitInSlot(toPlayer, selectedSlot)) {
-      showMsg(`${shortName(toPlayer.name)} (${toPlayer.position}) can't play ${SLOT_LABELS[selectedSlot]}`, 'error')
+      showMsg(`${shortName(toPlayer.name)} (${toPlayer.position}) can't play ${getSlotLabel(selectedSlot)}`, 'error')
       setSelectedSlot(null); return
     }
     setPending(prev => ({ ...prev, [selectedSlot]: toPlayer?.id ?? null, [slotIndex]: fromPlayer.id }))
@@ -166,7 +167,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         onClick={() => handleSlotTap(i)}
       >
         <div>
-          <div className="slot-label">{SLOT_LABELS[i]}</div>
+          <div className="slot-label">{getSlotLabel(i)}</div>
           {player && !isMarkedDrop && <span className={`pos pos-${player.position}`}>{player.position}</span>}
         </div>
         <div>
@@ -274,12 +275,22 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
 
       {/* Roster */}
       <div>
-        <div className="section-title">Roster</div>
-        <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>
-        {Array.from({ length: 10 }, (_, i) => slotRow(i))}
-        <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 14, marginBottom: 6 }}>Bench</div>
-        {Array.from({ length: 5 }, (_, i) => slotRow(10 + i))}
-      </div>
+  <div className="section-title">Roster</div>
+  <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Starters</div>
+  {Array.from({ length: 10 }, (_, i) => slotRow(i))}
+<div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 14, marginBottom: 6 }}>Bench</div>
+        {(() => {
+          const benchSlots = savedRoster
+            .filter(r => r.slot_index >= 10)
+            .sort((a, b) => a.slot_index - b.slot_index)
+          const lastFilledIdx = benchSlots.reduce((last, r) =>
+            r.player_id ? Math.max(last, r.slot_index) : last, 9)
+          const showUpTo = lastFilledIdx + 1
+          return benchSlots
+            .filter(r => r.slot_index <= showUpTo)
+            .map(r => slotRow(r.slot_index))
+        })()}
+</div>
     </div>
   )
 }
