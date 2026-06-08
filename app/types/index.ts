@@ -92,6 +92,23 @@ export interface PllDoubleHeader {
   pll_team: string
 }
 
+export interface Trade {
+  id: number
+  proposing_team_id: number
+  receiving_team_id: number
+  status: 'pending' | 'accepted' | 'declined' | 'vetoed' | 'completed' | 'cancelled'
+  created_at: string
+  updated_at: string
+  trade_assets: TradeAsset[]
+}
+
+export interface TradeAsset {
+  id: number
+  trade_id: number
+  team_id: number
+  player_id: number
+}
+
 export interface TeamRecord {
   team: FantasyTeam
   wins: number

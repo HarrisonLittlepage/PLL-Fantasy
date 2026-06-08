@@ -2,7 +2,8 @@
 // app/components/CommissionerTab.tsx
 
 import { apiFetch } from '../lib/api-fetch'
-import { useState } from 'react'
+import { createSupabaseBrowserClient } from '../lib/supabase-browser'
+import { useState, useEffect } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 
 const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
@@ -21,7 +22,7 @@ interface Props {
   onRefresh: () => void
 }
 
-type CommView = 'settings' | 'users' | 'scores'
+type CommView = 'settings' | 'users' | 'scores' | 'trades'
 
 export default function CommissionerTab({ teams, players, scores, settings, schedule, matchups, rosters, snapshots, gamePicks, pllDoubleHeaders, onRefresh }: Props) {
   const [view, setView] = useState<CommView>('settings')
@@ -39,9 +40,9 @@ export default function CommissionerTab({ teams, players, scores, settings, sche
         <div className="comm-header">⚙ Commissioner Panel</div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {(['settings', 'users', 'scores'] as CommView[]).map(v => (
+          {(['settings', 'users', 'scores', 'trades'] as CommView[]).map(v => (
             <button key={v} className={`btn btn-sm ${view === v ? 'btn-comm' : 'btn-outline'}`} onClick={() => setView(v)}>
-              {v === 'settings' ? 'League Settings' : v === 'users' ? 'Manage Users' : 'Enter Scores'}
+              {v === 'settings' ? 'League Settings' : v === 'users' ? 'Manage Users' : v === 'scores' ? 'Enter Scores' : 'Trades'}
             </button>
           ))}
         </div>
@@ -52,6 +53,7 @@ export default function CommissionerTab({ teams, players, scores, settings, sche
           </div>
         )}
 
+        {view === 'trades' && <TradesView teams={teams} players={players} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
         {view === 'settings' && <SettingsView settings={settings} schedule={schedule} matchups={matchups} rosters={rosters} scores={scores} gamePicks={gamePicks} teams={teams} players={players} pllDoubleHeaders={pllDoubleHeaders} snapshots={snapshots} saving={saving} setSaving={setSaving} flash={flash} onRefresh={onRefresh} />}
         {view === 'users' && <UsersView teams={teams} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
         {view === 'scores' && <ScoresView players={players} scores={scores} settings={settings} pllDoubleHeaders={pllDoubleHeaders} flash={flash} saving={saving} setSaving={setSaving} onRefresh={onRefresh} />}
@@ -610,6 +612,72 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+// ── TRADES VIEW ───────────────────────────────────────────────────────────────
+function TradesView({ teams, players, flash, saving, setSaving, onRefresh }: any) {
+  const [trades, setTrades] = useState<any[]>([])
+  const supabase = createSupabaseBrowserClient()
+
+  useEffect(() => {
+    supabase.from('trades').select('*, trade_assets(*)').eq('status', 'accepted').order('updated_at', { ascending: false })
+      .then(({ data }) => setTrades(data ?? []))
+  }, [])
+
+  async function handleApproval(tradeId: number, action: 'approve' | 'veto') {
+    setSaving(true)
+    const res = await apiFetch('/api/trades/approve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trade_id: tradeId, action }),
+    })
+    if (res.ok) {
+      flash(action === 'approve' ? 'Trade approved — players swapped' : 'Trade vetoed')
+      setTrades(prev => prev.filter((t: any) => t.id !== tradeId))
+      onRefresh()
+    } else {
+      const d = await res.json(); flash(d.error ?? 'Error', 'error')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div>
+      <div className="section-title" style={{ color: 'var(--comm-purple)' }}>Pending Trade Approvals</div>
+      {trades.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'sans-serif' }}>No trades awaiting approval.</div>
+      ) : trades.map((trade: any) => {
+        const propTeam = teams.find((t: any) => t.id === trade.proposing_team_id)
+        const recvTeam = teams.find((t: any) => t.id === trade.receiving_team_id)
+        const propAssets = (trade.trade_assets ?? []).filter((a: any) => a.team_id === trade.proposing_team_id)
+        const recvAssets = (trade.trade_assets ?? []).filter((a: any) => a.team_id === trade.receiving_team_id)
+        return (
+          <div key={trade.id} style={{ border: '1px solid #4c3a8a', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'sans-serif', marginBottom: 10 }}>{propTeam?.name} ↔ {recvTeam?.name}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'sans-serif', marginBottom: 4 }}>{propTeam?.name} sends</div>
+                {propAssets.map((a: any) => {
+                  const p = players.find((pl: any) => pl.id === a.player_id)
+                  return p ? <div key={a.id} style={{ fontSize: 12, fontFamily: 'sans-serif', marginBottom: 2 }}>{p.name}</div> : null
+                })}
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: 'sans-serif', marginBottom: 4 }}>{recvTeam?.name} sends</div>
+                {recvAssets.map((a: any) => {
+                  const p = players.find((pl: any) => pl.id === a.player_id)
+                  return p ? <div key={a.id} style={{ fontSize: 12, fontFamily: 'sans-serif', marginBottom: 2 }}>{p.name}</div> : null
+                })}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-sm btn-success" onClick={() => handleApproval(trade.id, 'approve')} disabled={saving} style={{ flex: 1 }}>✓ Approve</button>
+              <button className="btn btn-sm btn-danger" onClick={() => handleApproval(trade.id, 'veto')} disabled={saving} style={{ flex: 1 }}>✕ Veto</button>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

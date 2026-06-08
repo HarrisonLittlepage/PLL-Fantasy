@@ -6,6 +6,7 @@ import { useState } from 'react'
 import type { Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, FantasyTeam, PllDoubleHeader } from '../types'
 import { SLOT_LABELS, SLOT_POSITIONS, ELIGIBLE_POSITIONS, shortName, getSlotLabel, getSlotPosition } from '../types'
 import { getTeamWeekScore, calcTeamRecord } from '../lib/scoring'
+import TradeProposer from './TradeProposer'
 
 interface Props {
   myTeamId: number
@@ -39,6 +40,7 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
+  const [showTrade, setShowTrade] = useState(false)
 
   const week = settings.current_week
   const lockedTeams: string[] = settings.locked_pll_teams ?? []
@@ -268,7 +270,10 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
       ) : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Tap a player then tap destination to swap</div>
-          <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>Drop Players</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm btn-outline" onClick={() => setShowTrade(true)}>Propose Trade</button>
+            <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>Drop Players</button>
+          </div>
         </div>
       )}
 
@@ -290,6 +295,22 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
             .map(r => slotRow(r.slot_index))
         })()}
 </div>
+      {showTrade && (
+        <>
+          <div onClick={() => setShowTrade(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300 }} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301, background: 'var(--navy-card)', border: '1px solid var(--navy-border)', borderRadius: '14px 14px 0 0', maxHeight: '90vh', overflowY: 'auto', padding: '20px 16px 32px' }} className="drop-picker-panel">
+            <div style={{ width: 40, height: 4, background: 'var(--navy-border)', borderRadius: 2, margin: '0 auto 16px' }} />
+            <TradeProposer
+              myTeamId={myTeamId}
+              teams={teams}
+              players={players}
+              rosters={rosters}
+              onClose={() => setShowTrade(false)}
+              onSuccess={() => { setShowTrade(false); showMsg('Trade offer sent!', 'success') }}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

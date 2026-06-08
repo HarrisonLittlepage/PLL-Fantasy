@@ -35,6 +35,8 @@ export default function Home() {
   const [tab, setTab] = useState('matchups')
   const [initialTabSet, setInitialTabSet] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [pendingTradeCount, setPendingTradeCount] = useState(0)
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
   const loadData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -77,6 +79,14 @@ export default function Home() {
     setMatchups(matchupsData ?? [])
     setGamePicks(picksData ?? [])
     setPllDoubleHeaders(doubleHeadersData ?? [])
+    if (prof?.team_id) {
+      const { data: pt } = await supabase.from('trades').select('id').eq('receiving_team_id', prof.team_id).eq('status', 'pending')
+      setPendingTradeCount(pt?.length ?? 0)
+    }
+    if (prof?.is_commissioner) {
+      const { data: at } = await supabase.from('trades').select('id').eq('status', 'accepted')
+      setPendingApprovalCount(at?.length ?? 0)
+    }
     if (prof?.team_id && !initialTabSet) { setTab('team'); setInitialTabSet(true) }
     setLoading(false)
   }, [supabase, router])
@@ -128,8 +138,15 @@ export default function Home() {
               key={t.id}
               className={`tab${tab === t.id ? ' active' : ''}${t.commOnly ? ' comm' : ''}`}
               onClick={() => setTab(t.id)}
+              style={{ position: 'relative' }}
             >
               {t.label}
+              {t.id === 'transactions' && pendingTradeCount > 0 && (
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+              )}
+              {t.id === 'commissioner' && pendingApprovalCount > 0 && (
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+              )}
             </button>
           ))}
         </div>
@@ -141,7 +158,7 @@ export default function Home() {
       {tab === 'waivers' && <WaiverTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'fa' && profile.team_id && <FreeAgentsTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'rosters' && <LeagueTab {...sharedProps} />}
-      {tab === 'transactions' && <TransactionsTab teams={teams} players={players} onRefresh={loadData} />}
+      {tab === 'transactions' && <TransactionsTab teams={teams} players={players} myTeamId={profile.team_id} onRefresh={loadData} />}
       {tab === 'commissioner' && isCommissioner && <CommissionerTab {...sharedProps} />}
     </div>
   )
