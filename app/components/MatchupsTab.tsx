@@ -75,9 +75,11 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     let slots: Array<{ slot_index: number; player_id: number | null }>
     if (viewWeek < currentWeek) {
       const snap = snapshots.filter(s => s.team_id === teamId && s.week === viewWeek)
-      slots = snap.length > 0 ? snap : rosters.filter(r => r.team_id === teamId && r.slot_index <= 13)
+      slots = snap.length > 0
+        ? [...snap, ...rosters.filter(r => r.team_id === teamId && r.slot_index >= 10 && r.player_id !== null)]
+        : rosters.filter(r => r.team_id === teamId && r.player_id !== null)
     } else {
-      slots = rosters.filter(r => r.team_id === teamId && r.slot_index <= 13)
+      slots = rosters.filter(r => r.team_id === teamId && r.player_id !== null)
     }
     return slots.sort((a, b) => a.slot_index - b.slot_index).map(slot => {
       const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
@@ -117,11 +119,9 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
           <span style={{ color: 'var(--muted)', fontSize: isBench ? 8 : 9, marginLeft: 4 }}>{player.pll_team}</span>
         )}
       </span>
-      {!isBench && (
-        <span style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 11, flexShrink: 0 }}>
-          {pts != null && player ? pts : ''}
-        </span>
-      )}
+      <span style={{ color: 'var(--gold)', fontWeight: isBench ? 400 : 600, fontSize: 11, flexShrink: 0, opacity: isBench ? 0.6 : 1 }}>
+        {pts != null && player ? pts : ''}
+      </span>
     </div>
   )
 
