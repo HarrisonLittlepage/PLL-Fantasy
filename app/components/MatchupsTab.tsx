@@ -71,21 +71,23 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
     return getTeamWeekScore(teamId, viewWeek, rosters, scores, players, pllDoubleHeaders, currentWeek, snapshots)
   }
 
-  function getRosterWithScores(teamId: number) {
+function getRosterWithScores(teamId: number) {
     let slots: Array<{ slot_index: number; player_id: number | null }>
     if (viewWeek < currentWeek) {
       const snap = snapshots.filter(s => s.team_id === teamId && s.week === viewWeek)
       slots = snap.length > 0
-        ? [...snap, ...rosters.filter(r => r.team_id === teamId && r.slot_index >= 10 && r.player_id !== null)]
+        ? snap
         : rosters.filter(r => r.team_id === teamId && r.player_id !== null)
     } else {
       slots = rosters.filter(r => r.team_id === teamId && r.player_id !== null)
     }
-    return slots.sort((a, b) => a.slot_index - b.slot_index).map(slot => {
-      const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
-      const pts = player ? getPlayerWeekScore(player.id, viewWeek, scores, players, pllDoubleHeaders) : null
-      return { slot, player, pts }
-    })
+    return slots
+      .sort((a, b) => a.slot_index - b.slot_index)
+      .map(slot => {
+        const player = slot.player_id ? players.find(p => p.id === slot.player_id) ?? null : null
+        const pts = player ? getPlayerWeekScore(player.id, viewWeek, scores, players, pllDoubleHeaders) : null
+        return { slot, player, pts }
+      })
   }
 
   const current = weekMatchups[activeIdx]
