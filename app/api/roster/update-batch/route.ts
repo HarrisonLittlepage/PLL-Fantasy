@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (txRows.length > 0) {
-    await admin.from('transactions').insert(txRows)
+    const { error: txError } = await admin.from('transactions').insert(txRows)
+    if (txError) console.error('Transaction insert error:', txError)
   }
 
   return NextResponse.json({ success: true, updated: slots.length })
