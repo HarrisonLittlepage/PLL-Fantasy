@@ -91,38 +91,39 @@ export async function POST(req: NextRequest) {
   )
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log transactions
-  const allOwnedIds = new Set(Object.values(currentMap).filter(Boolean))
+  // Log transactions — only real adds and drops, not lineup swaps
+  const currentPlayerIds = new Set((currentRoster ?? []).map((r: any) => r.player_id).filter(Boolean))
+  const incomingPlayerIds = new Set(slots.map((s: any) => s.player_id).filter(Boolean))
+  const clearedSlots = slots.filter((s: any) => !s.player_id && currentMap[s.slot_index])
   const txRows: any[] = []
 
+  // Adds: players coming in who weren't on the team before
   for (const slot of slots) {
-    const prevPlayerId = currentMap[slot.slot_index] ?? null
-    const newPlayerId = slot.player_id ?? null
-
-    // Solo drop: slot cleared
-    if (prevPlayerId && !newPlayerId) {
-      txRows.push({
-        team_id: profile.team_id,
-        type: 'drop',
-        player_id: prevPlayerId,
-        transaction_group: generateUUID(),
-      })
-    }
-
-    // Add: new player who wasn't previously on this team
-    if (newPlayerId && !allOwnedIds.has(newPlayerId)) {
+    if (slot.player_id && !currentPlayerIds.has(slot.player_id)) {
       txRows.push({
         team_id: profile.team_id,
         type: 'add',
-        player_id: newPlayerId,
+        player_id: slot.player_id,
+        transaction_group: generateUUID(),
+      })
+    }
+  }
+
+  // Drops: slots being cleared where the player isn't being moved elsewhere
+  for (const slot of clearedSlots) {
+    const droppedId = currentMap[slot.slot_index]
+    if (droppedId && !incomingPlayerIds.has(droppedId)) {
+      txRows.push({
+        team_id: profile.team_id,
+        type: 'drop',
+        player_id: droppedId,
         transaction_group: generateUUID(),
       })
     }
   }
 
   if (txRows.length > 0) {
-    const { error: txError } = await admin.from('transactions').insert(txRows)
-    if (txError) console.error('Transaction insert error:', txError)
+    await admin.from('transactions').insert(txRows)
   }
 
   return NextResponse.json({ success: true, updated: slots.length })
