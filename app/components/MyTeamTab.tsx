@@ -269,11 +269,8 @@ export default function MyTeamTab({ myTeamId, teams, players, scores, rosters, s
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>Tap a player then tap destination to swap</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-sm btn-outline" onClick={() => setShowTrade(true)}>Propose Trade</button>
-            <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }}>Drop Players</button>
-          </div>
+          <button className="btn btn-sm btn-outline" onClick={() => setShowTrade(true)} style={{ whiteSpace: 'nowrap' }}>Propose Trade</button>
+          <button className="btn btn-sm btn-danger" onClick={() => { setDropMode(true); setSelectedSlot(null); setPending({}) }} style={{ whiteSpace: 'nowrap' }}>Drop Players</button>
         </div>
       )}
 
