@@ -24,19 +24,19 @@ export async function POST(req: NextRequest) {
   const { data: teams } = await admin.from('fantasy_teams').select('id')
   if (!teams) return NextResponse.json({ error: 'No teams found' }, { status: 500 })
 
-  // Get all current rosters (starters only, slots 0-9)
+  // Get all current rosters (starters + bench)
   const { data: rosters } = await admin
     .from('rosters')
     .select('team_id, slot_index, player_id')
     .in('team_id', teams.map(t => t.id))
-    .lte('slot_index', 9)
+    .not('player_id', 'is', null)
 
   if (!rosters) return NextResponse.json({ error: 'Could not fetch rosters' }, { status: 500 })
 
   // Delete any existing snapshot for this week (allows re-snapshotting if needed)
   await admin.from('roster_snapshots').delete().eq('week', week)
 
-  // Insert snapshot rows for all starters
+  // Insert snapshot rows for all players
   const snapshots = rosters.map(r => ({
     team_id: r.team_id,
     week,
