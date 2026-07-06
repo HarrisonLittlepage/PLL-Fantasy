@@ -161,7 +161,7 @@ export default function PlayoffBracket({ teams, players, scores, rosters, snapsh
       {/* Toilet Bowl */}
       <div>
         <div style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'sans-serif', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>
-          🚽 Toilet Bowl — Combined Score, Weeks 9 &amp; 10
+          🚽 Toilet Bowl — Combined Score
         </div>
         {matchupPair(toiletTeams.home, seedOf(toiletTeams.home?.id), toiletHomeTotal, toiletTeams.away, seedOf(toiletTeams.away?.id), toiletAwayTotal, week9Locked)}
         {toiletBowlComplete && (
