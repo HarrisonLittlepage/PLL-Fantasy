@@ -115,9 +115,10 @@ export function calcTeamRecord(
 }
 
 /**
- * Get playoff seeds: top 4 teams by wins, tiebreaker = points for.
+ * Get full standings: all teams ranked by wins, tiebreaker = points for.
+ * Used both for final playoff seeding and for live "if the season ended today" projections.
  */
-export function getPlayoffSeeds(
+export function getFullStandings(
   teams: FantasyTeam[],
   liveRoster: RosterSlot[],
   scores: PlayerScore[],
@@ -133,7 +134,22 @@ export function getPlayoffSeeds(
     return { team, ...rec }
   })
 
-  return records
-    .sort((a, b) => b.wins - a.wins || b.points_for - a.points_for)
-    .slice(0, 4)
+  return records.sort((a, b) => b.wins - a.wins || b.points_for - a.points_for)
+}
+
+/**
+ * Get playoff seeds: top 4 teams by wins, tiebreaker = points for.
+ */
+export function getPlayoffSeeds(
+  teams: FantasyTeam[],
+  liveRoster: RosterSlot[],
+  scores: PlayerScore[],
+  players: Player[],
+  schedule: WeekSchedule[],
+  matchups: Matchup[],
+  pllDoubleHeaders: PllDoubleHeader[],
+  currentWeek: number = 9,
+  snapshots: RosterSnapshot[] = []
+): TeamRecord[] {
+  return getFullStandings(teams, liveRoster, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots).slice(0, 4)
 }

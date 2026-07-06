@@ -79,6 +79,8 @@ export interface Matchup {
   home_team_id: number
   away_team_id: number
   is_playoff: boolean
+  matchup_type?: 'regular' | 'semifinal' | 'toilet_bowl' | 'championship' | 'third_place' | 'toilet_bowl_2'
+  seed_label?: string | null
 }
 
 export interface GamePick {

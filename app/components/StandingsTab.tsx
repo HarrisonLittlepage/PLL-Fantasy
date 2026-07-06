@@ -1,8 +1,10 @@
 'use client'
 // app/components/StandingsTab.tsx
 
+import { useState } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { calcTeamRecord } from '../lib/scoring'
+import PlayoffBracket from './PlayoffBracket'
 
 interface Props {
   teams: FantasyTeam[]
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export default function StandingsTab({ teams, players, scores, rosters, snapshots, settings, schedule, matchups, pllDoubleHeaders }: Props) {
+  const [subTab, setSubTab] = useState<'standings' | 'playoffs'>('standings')
   const week = settings.current_week
 
   const rows = teams.map(team => {
@@ -28,6 +31,22 @@ export default function StandingsTab({ teams, players, scores, rosters, snapshot
 
   return (
     <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        <button onClick={() => setSubTab('standings')} className={`btn btn-sm ${subTab === 'standings' ? 'btn-gold' : 'btn-outline'}`}>Standings</button>
+        <button onClick={() => setSubTab('playoffs')} className={`btn btn-sm ${subTab === 'playoffs' ? 'btn-gold' : 'btn-outline'}`}>Playoffs</button>
+      </div>
+
+      {subTab === 'playoffs' ? (
+        <>
+        <div className="section-title">Playoff Bracket</div>
+        <PlayoffBracket
+          teams={teams} players={players} scores={scores} rosters={rosters}
+          snapshots={snapshots} settings={settings} schedule={schedule}
+          matchups={matchups} pllDoubleHeaders={pllDoubleHeaders}
+        />
+        </>
+      ) : (
+      <>
       <div className="section-title">Standings</div>
       <div style={{ display: 'grid', gridTemplateColumns: '24px minmax(0,1fr) 36px 36px 60px', alignItems: 'center', gap: 6, padding: '7px 8px', color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--navy-border)', paddingBottom: 6, marginBottom: 4 }}>
         <div>#</div><div>Team</div>
@@ -53,6 +72,8 @@ export default function StandingsTab({ teams, players, scores, rosters, snapshot
           </div>
         </div>
       ))}
+      </>
+      )}
     </div>
   )
 }

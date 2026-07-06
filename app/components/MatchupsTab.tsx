@@ -4,7 +4,7 @@
 import { useState, useRef } from 'react'
 import type { FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot, LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader } from '../types'
 import { shortName } from '../types'
-import { getTeamWeekScore, getPlayerWeekScore, getPlayoffSeeds } from '../lib/scoring'
+import { getTeamWeekScore, getPlayerWeekScore } from '../lib/scoring'
 
 interface Props {
   myTeamId: number | null
@@ -29,18 +29,22 @@ export default function MatchupsTab({ myTeamId, teams, players, scores, rosters,
   const isPlayoff = wkData?.week_type === 'playoffs'
   const isPast = viewWeek < currentWeek
 
-  const seeds = getPlayoffSeeds(teams, rosters, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots)
-
+  // Playoff weeks (9-10) are entirely DB-driven — matchups only exist once the
+  // commissioner completes the prior week, so the championship never pre-populates.
   let weekMatchups: Array<{ homeId: number; awayId: number; label?: string }> = []
   if (isPlayoff) {
-    if (viewWeek === 9) {
-      weekMatchups = [
-        { homeId: seeds[0].team.id, awayId: seeds[3].team.id, label: 'Semifinal — 1 vs 4' },
-        { homeId: seeds[1].team.id, awayId: seeds[2].team.id, label: 'Semifinal — 2 vs 3' },
-      ]
-    } else if (viewWeek === 10) {
-      weekMatchups = [{ homeId: seeds[0].team.id, awayId: seeds[1].team.id, label: 'Championship' }]
-    }
+    weekMatchups = matchups
+      .filter(m => m.week === viewWeek)
+      .map(m => ({
+        homeId: m.home_team_id,
+        awayId: m.away_team_id,
+        label: m.matchup_type === 'semifinal' ? `Semifinal — ${m.seed_label ?? ''}`
+          : m.matchup_type === 'toilet_bowl' ? 'Toilet Bowl — Leg 1'
+          : m.matchup_type === 'toilet_bowl_2' ? 'Toilet Bowl — Leg 2'
+          : m.matchup_type === 'championship' ? 'Championship'
+          : m.matchup_type === 'third_place' ? '3rd Place'
+          : undefined,
+      }))
   } else {
     weekMatchups = matchups.filter(m => m.week === viewWeek).map(m => ({ homeId: m.home_team_id, awayId: m.away_team_id }))
   }
@@ -191,11 +195,6 @@ function getRosterWithScores(teamId: number) {
                 </div>
                 <div style={{ textAlign: 'center', fontFamily: 'sans-serif', fontSize: 12, color: 'var(--muted)' }}>
                   {current.label ?? 'vs'}
-                  {isPlayoff && seeds.length >= 4 && (
-                    <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 4 }}>
-                      #{seeds.findIndex(s => s.team.id === current.homeId) + 1} vs #{seeds.findIndex(s => s.team.id === current.awayId) + 1}
-                    </div>
-                  )}
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'sans-serif', color: awayWin ? 'var(--green)' : 'var(--text)', lineHeight: 1.2 }}>{awayTeam.name}</div>
