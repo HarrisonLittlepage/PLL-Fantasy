@@ -55,6 +55,7 @@ export interface LeagueSettings {
   waiver_state: string | null
   waiver_order: number[]
   waiver_current_idx: number
+  waiver_pick_trades: Array<{ from_team_id: number; to_team_id: number }>
 }
 
 export interface Transaction {

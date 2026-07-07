@@ -122,12 +122,12 @@ export default function Home() {
     isMyWaiverTurn = effectiveTeamId === profile.team_id
   }
 
-  const navTabs = [
+const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: boolean }> = [
     { id: 'team', label: 'My Team', hidden: !profile.team_id },
     { id: 'matchups', label: 'Matchups' },
     { id: 'standings', label: 'Standings' },
     { id: 'waivers', label: 'Waivers', hidden: !profile.team_id && !isCommissioner },
-    { id: 'fa', label: 'Players', hidden: !profile.team_id },,
+    { id: 'fa', label: 'Players', hidden: !profile.team_id },
     { id: 'rosters', label: 'Rosters' },
     { id: 'transactions', label: 'Transactions' },
     { id: 'commissioner', label: 'Commissioner', commOnly: true },
