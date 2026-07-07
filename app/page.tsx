@@ -127,7 +127,7 @@ export default function Home() {
     { id: 'matchups', label: 'Matchups' },
     { id: 'standings', label: 'Standings' },
     { id: 'waivers', label: 'Waivers', hidden: !profile.team_id && !isCommissioner },
-    { id: 'fa', label: 'Free Agents', hidden: !profile.team_id },
+    { id: 'fa', label: 'Players', hidden: !profile.team_id },,
     { id: 'rosters', label: 'Rosters' },
     { id: 'transactions', label: 'Transactions' },
     { id: 'commissioner', label: 'Commissioner', commOnly: true },
