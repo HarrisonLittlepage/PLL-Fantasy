@@ -22,9 +22,10 @@ interface Props {
   onRefresh: () => void
 }
 
-export default function FreeAgentsTab({ myTeamId, players, scores, rosters, settings, onRefresh }: Props) {
+export default function FreeAgentsTab({ myTeamId, teams, players, scores, rosters, settings, onRefresh }: Props) {
   const [filter, setFilter] = useState('ALL')
   const [search, setSearch] = useState('')
+  const [faOnly, setFaOnly] = useState(false)
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [saving, setSaving] = useState(false)
   const [dropPickerPlayer, setDropPickerPlayer] = useState<Player | null>(null)
@@ -32,13 +33,22 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
   const week = settings.current_week
   const lockedTeams: string[] = settings.locked_pll_teams ?? []
   const waiverOpen = settings.waiver_state === 'open'
-  const allOwnedIds = new Set(rosters.map(r => r.player_id).filter(Boolean))
+
+  // Map player_id -> owning team (only counts starters+bench with a player assigned)
+  const ownerMap = new Map<number, FantasyTeam>()
+  for (const r of rosters) {
+    if (r.player_id != null) {
+      const team = teams.find(t => t.id === r.team_id)
+      if (team) ownerMap.set(r.player_id, team)
+    }
+  }
+
   const myRoster = rosters.filter(r => r.team_id === myTeamId)
   const myRosterCount = myRoster.filter(r => r.player_id !== null).length
   const isFull = myRosterCount >= 14
 
-  const freeAgents = players.filter(p =>
-    !allOwnedIds.has(p.id) &&
+  const displayedPlayers = players.filter(p =>
+    (!faOnly || !ownerMap.has(p.id)) &&
     (filter === 'ALL' || p.position === filter) &&
     (search === '' || p.name.toLowerCase().includes(search.toLowerCase()))
   ).sort((a, b) => Number(b.avg_pts) - Number(a.avg_pts))
@@ -56,7 +66,6 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
       return
     }
 
-    // Find first open bench slot dynamically
     const usedBenchSlots = new Set(myRoster.filter(r => r.slot_index >= 10 && r.player_id !== null).map(r => r.slot_index))
     let benchSlot = 10
     while (usedBenchSlots.has(benchSlot)) benchSlot++
@@ -127,6 +136,19 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
         </div>
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div className="section-title" style={{ margin: 0 }}>{displayedPlayers.length} {faOnly ? 'available' : 'players'}</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
+          Free agents only
+          <input
+            type="checkbox"
+            checked={faOnly}
+            onChange={e => setFaOnly(e.target.checked)}
+            style={{ accentColor: 'var(--gold)', width: 15, height: 15, cursor: 'pointer' }}
+          />
+        </label>
+      </div>
+
       {msg && (
         <div style={{ padding: '7px 12px', borderRadius: 5, fontSize: 12, fontFamily: 'sans-serif', marginBottom: 10,
           background: msg.type === 'error' ? '#3a1a1a' : '#1a3a2a',
@@ -136,42 +158,55 @@ export default function FreeAgentsTab({ myTeamId, players, scores, rosters, sett
         </div>
       )}
 
-      <div className="section-title">{freeAgents.length} available</div>
-
-      {freeAgents.map(p => {
+      {displayedPlayers.map(p => {
         const pts = weekPts(p)
         const isLocked = lockedTeams.includes(p.pll_team)
+        const owner = ownerMap.get(p.id)
+        const isMine = owner?.id === myTeamId
         return (
           <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 5, transition: 'background .1s', opacity: isLocked ? 0.6 : 1 }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-light)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <span className={`pos pos-${p.position}`}>{p.position}</span>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontFamily: 'sans-serif' }}>
                 {shortName(p.name)}{isLocked && <span style={{ marginLeft: 5, fontSize: 10 }}>🔒</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif' }}>{p.pll_team}</div>
             </div>
+            {owner && (
+              <div style={{
+                fontSize: 10, fontFamily: 'sans-serif', padding: '3px 8px', borderRadius: 4,
+                background: isMine ? '#1a3a2a' : 'var(--navy-light)',
+                border: `1px solid ${isMine ? 'var(--green)' : 'var(--navy-border)'}`,
+                color: isMine ? 'var(--green)' : 'var(--muted)',
+                whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {owner.name}
+              </div>
+            )}
             <div style={{ textAlign: 'right', minWidth: 54, fontFamily: 'sans-serif', fontSize: 11 }}>
               {pts != null && <div style={{ color: 'var(--gold)' }}>{pts} pts</div>}
               <div style={{ color: 'var(--muted)', fontSize: 10 }}>avg {p.avg_pts}</div>
             </div>
-            <button
-              className="btn btn-sm btn-success"
-              disabled={saving || isLocked || waiverOpen}
-              onClick={() => addPlayer(p)}
-              style={isLocked || waiverOpen ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-            >
-              {isLocked ? '🔒' : waiverOpen ? '—' : 'Add'}
-            </button>
+            {!owner && (
+              <button
+                className="btn btn-sm btn-success"
+                disabled={saving || isLocked || waiverOpen}
+                onClick={() => addPlayer(p)}
+                style={isLocked || waiverOpen ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+              >
+                {isLocked ? '🔒' : waiverOpen ? '—' : 'Add'}
+              </button>
+            )}
           </div>
         )
       })}
 
-      {freeAgents.length === 0 && (
+      {displayedPlayers.length === 0 && (
         <div style={{ color: 'var(--muted)', fontSize: 13, fontFamily: 'sans-serif', padding: '20px 0', textAlign: 'center' }}>
-          No free agents match your filter.
+          No players match your filter.
         </div>
       )}
 

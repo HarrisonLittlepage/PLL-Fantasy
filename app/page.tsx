@@ -109,6 +109,19 @@ export default function Home() {
   const myTeam = teams.find(t => t.id === profile.team_id)
   const isCommissioner = profile.is_commissioner
 
+  // Determine if it's my turn in waivers (accounting for traded picks)
+  const waiverOpen = settings.waiver_state === 'open'
+  const order: number[] = settings.waiver_order ?? []
+  const pickTrades: Array<{ from_team_id: number; to_team_id: number }> = settings.waiver_pick_trades ?? []
+  let isMyWaiverTurn = false
+  if (waiverOpen && profile.team_id && order.length > 0) {
+    const idx = settings.waiver_current_idx ?? 0
+    const baseTeamId = order[idx % order.length]
+    const trade = pickTrades.find(t => t.from_team_id === baseTeamId)
+    const effectiveTeamId = trade ? trade.to_team_id : baseTeamId
+    isMyWaiverTurn = effectiveTeamId === profile.team_id
+  }
+
   const navTabs = [
     { id: 'team', label: 'My Team', hidden: !profile.team_id },
     { id: 'matchups', label: 'Matchups' },
@@ -145,6 +158,9 @@ export default function Home() {
                 <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
               )}
               {t.id === 'commissioner' && pendingApprovalCount > 0 && (
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+              )}
+              {t.id === 'waivers' && isMyWaiverTurn && (
                 <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
               )}
             </button>
