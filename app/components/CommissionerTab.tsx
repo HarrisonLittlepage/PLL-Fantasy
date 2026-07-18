@@ -535,7 +535,7 @@ function ScoresView({ players, scores, settings, pllDoubleHeaders, flash, saving
       body: JSON.stringify({ scores: payload }),
     })
     const d = await res.json()
-    if (res.ok) { flash(`Saved ${d.count} score entries`); setLocalScores({}); onRefresh() }
+    if (res.ok) { flash(`Saved ${d.count} score entries`); await onRefresh(); setLocalScores({}) }
     else { flash(d.error ?? 'Error saving scores', 'error') }
     setSaving(false)
   }
