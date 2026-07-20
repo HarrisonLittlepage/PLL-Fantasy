@@ -9,8 +9,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const admin = createSupabaseAdminClient()
-  const { data: profile } = await admin.from('profiles').select('is_commissioner').eq('id', user.id).single()
-  if (!profile?.is_commissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_commissioner')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.is_commissioner)
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   const { locked_pll_teams } = await req.json()
   if (!Array.isArray(locked_pll_teams)) {

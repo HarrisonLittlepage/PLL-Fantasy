@@ -31,11 +31,25 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo">PLL Fantasy<span> App</span></div>
+        <div className="auth-logo">
+          PLL Fantasy<span> App</span>
+        </div>
         <div className="auth-sub">Private League</div>
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '1px' }}>Email</label>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 11,
+                color: 'var(--muted)',
+                fontFamily: 'sans-serif',
+                marginBottom: 5,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+              }}
+            >
+              Email
+            </label>
             <input
               className="input"
               type="email"
@@ -46,7 +60,19 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--muted)', fontFamily: 'sans-serif', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '1px' }}>Password</label>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 11,
+                color: 'var(--muted)',
+                fontFamily: 'sans-serif',
+                marginBottom: 5,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+              }}
+            >
+              Password
+            </label>
             <input
               className="input"
               type="password"
@@ -57,15 +83,38 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <div style={{ padding: '8px 12px', background: '#3a1a1a', border: '1px solid var(--red)', borderRadius: 6, fontSize: 12, color: '#e06060', fontFamily: 'sans-serif' }}>
+            <div
+              style={{
+                padding: '8px 12px',
+                background: '#3a1a1a',
+                border: '1px solid var(--red)',
+                borderRadius: 6,
+                fontSize: 12,
+                color: '#e06060',
+                fontFamily: 'sans-serif',
+              }}
+            >
               {error}
             </div>
           )}
-          <button className="btn btn-gold" type="submit" disabled={loading} style={{ marginTop: 4 }}>
+          <button
+            className="btn btn-gold"
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: 4 }}
+          >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div style={{ marginTop: 20, textAlign: 'center', fontSize: 12, color: 'var(--muted)', fontFamily: 'sans-serif' }}>
+        <div
+          style={{
+            marginTop: 20,
+            textAlign: 'center',
+            fontSize: 12,
+            color: 'var(--muted)',
+            fontFamily: 'sans-serif',
+          }}
+        >
           Don't have an account? Ask your commissioner.
         </div>
       </div>

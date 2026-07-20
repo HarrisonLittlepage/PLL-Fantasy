@@ -10,11 +10,20 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const admin = createSupabaseAdminClient()
-  const { data: profile } = await admin.from('profiles').select('is_commissioner').eq('id', user.id).single()
-  if (!profile?.is_commissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_commissioner')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.is_commissioner)
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   // Get current week
-  const { data: settings } = await admin.from('league_settings').select('current_week').eq('id', 1).single()
+  const { data: settings } = await admin
+    .from('league_settings')
+    .select('current_week')
+    .eq('id', 1)
+    .single()
   if (!settings) return NextResponse.json({ error: 'Settings not found' }, { status: 500 })
 
   const week = settings.current_week
@@ -28,7 +37,10 @@ export async function POST(req: NextRequest) {
   const { data: rosters } = await admin
     .from('rosters')
     .select('team_id, slot_index, player_id')
-    .in('team_id', teams.map(t => t.id))
+    .in(
+      'team_id',
+      teams.map(t => t.id),
+    )
     .not('player_id', 'is', null)
 
   if (!rosters) return NextResponse.json({ error: 'Could not fetch rosters' }, { status: 500 })
@@ -51,17 +63,13 @@ export async function POST(req: NextRequest) {
 
   // ── Recalculate avg_pts for all players ──────────────────────────────────
   // Fetch all scores, players, bye weeks, and double headers
-  const [
-    { data: allScores },
-    { data: allPlayers },
-    { data: byeWeeks },
-    { data: doubleHeaders },
-  ] = await Promise.all([
-    admin.from('player_scores').select('player_id, week, game, points'),
-    admin.from('players').select('id, pll_team'),
-    admin.from('pll_bye_weeks').select('week, pll_team'),
-    admin.from('pll_double_headers').select('week, pll_team'),
-  ])
+  const [{ data: allScores }, { data: allPlayers }, { data: byeWeeks }, { data: doubleHeaders }] =
+    await Promise.all([
+      admin.from('player_scores').select('player_id, week, game, points'),
+      admin.from('players').select('id, pll_team'),
+      admin.from('pll_bye_weeks').select('week, pll_team'),
+      admin.from('pll_double_headers').select('week, pll_team'),
+    ])
 
   if (allScores && allPlayers) {
     // Build a map of bye weeks per PLL team

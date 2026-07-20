@@ -9,8 +9,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const admin = createSupabaseAdminClient()
-  const { data: profile } = await admin.from('profiles').select('is_commissioner').eq('id', user.id).single()
-  if (!profile?.is_commissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_commissioner')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.is_commissioner)
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   const { action, waiver_order } = await req.json()
 
@@ -19,36 +24,49 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(waiver_order) || waiver_order.length === 0) {
       return NextResponse.json({ error: 'waiver_order required to open waivers' }, { status: 400 })
     }
-    const { error } = await admin.from('league_settings').update({
-      waiver_state: 'open',
-      waiver_order,
-      waiver_current_idx: 0,
-      updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+    const { error } = await admin
+      .from('league_settings')
+      .update({
+        waiver_state: 'open',
+        waiver_order,
+        waiver_current_idx: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', 1)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, action: 'opened' })
   }
 
   if (action === 'close') {
-    const { error } = await admin.from('league_settings').update({
-      waiver_state: null,
-      waiver_order: [],
-      waiver_current_idx: 0,
-      updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+    const { error } = await admin
+      .from('league_settings')
+      .update({
+        waiver_state: null,
+        waiver_order: [],
+        waiver_current_idx: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', 1)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, action: 'closed' })
   }
 
   if (action === 'advance') {
     // Commissioner manually advances turn
-    const { data: settings } = await admin.from('league_settings').select('waiver_order, waiver_current_idx').eq('id', 1).single()
+    const { data: settings } = await admin
+      .from('league_settings')
+      .select('waiver_order, waiver_current_idx')
+      .eq('id', 1)
+      .single()
     if (!settings) return NextResponse.json({ error: 'Settings not found' }, { status: 500 })
     const nextIdx = (settings.waiver_current_idx ?? 0) + 1
-    const { error } = await admin.from('league_settings').update({
-      waiver_current_idx: nextIdx,
-      updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+    const { error } = await admin
+      .from('league_settings')
+      .update({
+        waiver_current_idx: nextIdx,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', 1)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, action: 'advanced', new_idx: nextIdx })
   }

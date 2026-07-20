@@ -1,6 +1,15 @@
 // app/lib/scoring.ts
 
-import type { PlayerScore, RosterSlot, WeekSchedule, Matchup, FantasyTeam, TeamRecord, Player, PllDoubleHeader } from '../types'
+import type {
+  PlayerScore,
+  RosterSlot,
+  WeekSchedule,
+  Matchup,
+  FantasyTeam,
+  TeamRecord,
+  Player,
+  PllDoubleHeader,
+} from '../types'
 
 export interface RosterSnapshot {
   team_id: number
@@ -18,10 +27,14 @@ export function getPlayerWeekScore(
   week: number,
   scores: PlayerScore[],
   players: Player[],
-  pllDoubleHeaders: PllDoubleHeader[]
+  pllDoubleHeaders: PllDoubleHeader[],
 ): number {
-  const gameA = Number(scores.find(s => s.player_id === playerId && s.week === week && s.game === 'A')?.points ?? 0)
-  const gameBRaw = scores.find(s => s.player_id === playerId && s.week === week && s.game === 'B')?.points
+  const gameA = Number(
+    scores.find(s => s.player_id === playerId && s.week === week && s.game === 'A')?.points ?? 0,
+  )
+  const gameBRaw = scores.find(
+    s => s.player_id === playerId && s.week === week && s.game === 'B',
+  )?.points
   const gameB = gameBRaw !== undefined ? Number(gameBRaw) : null
 
   const player = players.find(p => p.id === playerId)
@@ -42,7 +55,7 @@ export function getRosterForWeek(
   week: number,
   currentWeek: number,
   liveRoster: RosterSlot[],
-  snapshots: RosterSnapshot[]
+  snapshots: RosterSnapshot[],
 ): Array<{ slot_index: number; player_id: number | null }> {
   if (week < currentWeek) {
     // Use snapshot for completed weeks
@@ -67,7 +80,7 @@ export function getTeamWeekScore(
   players: Player[],
   pllDoubleHeaders: PllDoubleHeader[],
   currentWeek: number = week,
-  snapshots: RosterSnapshot[] = []
+  snapshots: RosterSnapshot[] = [],
 ): number {
   const roster = getRosterForWeek(teamId, week, currentWeek, liveRoster, snapshots)
   const starters = roster.filter(r => r.slot_index <= 9 && r.player_id !== null)
@@ -90,21 +103,43 @@ export function calcTeamRecord(
   matchups: Matchup[],
   pllDoubleHeaders: PllDoubleHeader[],
   currentWeek: number = upToWeek + 1,
-  snapshots: RosterSnapshot[] = []
+  snapshots: RosterSnapshot[] = [],
 ): { wins: number; losses: number; points_for: number } {
-  let wins = 0, losses = 0, points_for = 0
+  let wins = 0,
+    losses = 0,
+    points_for = 0
 
   for (let wk = 1; wk <= Math.min(upToWeek, 8); wk++) {
     const wkData = schedule.find(s => s.week === wk)
     if (!wkData || wkData.week_type !== 'regular') continue
 
-    const matchup = matchups.find(m => m.week === wk && (m.home_team_id === teamId || m.away_team_id === teamId))
+    const matchup = matchups.find(
+      m => m.week === wk && (m.home_team_id === teamId || m.away_team_id === teamId),
+    )
     if (!matchup) continue
 
     const oppId = matchup.home_team_id === teamId ? matchup.away_team_id : matchup.home_team_id
 
-    const myScore = getTeamWeekScore(teamId, wk, liveRoster, scores, players, pllDoubleHeaders, currentWeek, snapshots)
-    const oppScore = getTeamWeekScore(oppId, wk, liveRoster, scores, players, pllDoubleHeaders, currentWeek, snapshots)
+    const myScore = getTeamWeekScore(
+      teamId,
+      wk,
+      liveRoster,
+      scores,
+      players,
+      pllDoubleHeaders,
+      currentWeek,
+      snapshots,
+    )
+    const oppScore = getTeamWeekScore(
+      oppId,
+      wk,
+      liveRoster,
+      scores,
+      players,
+      pllDoubleHeaders,
+      currentWeek,
+      snapshots,
+    )
 
     points_for += myScore
     if (myScore > oppScore) wins++
@@ -127,10 +162,21 @@ export function getFullStandings(
   matchups: Matchup[],
   pllDoubleHeaders: PllDoubleHeader[],
   currentWeek: number = 9,
-  snapshots: RosterSnapshot[] = []
+  snapshots: RosterSnapshot[] = [],
 ): TeamRecord[] {
   const records: TeamRecord[] = teams.map(team => {
-    const rec = calcTeamRecord(team.id, 8, liveRoster, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots)
+    const rec = calcTeamRecord(
+      team.id,
+      8,
+      liveRoster,
+      scores,
+      players,
+      schedule,
+      matchups,
+      pllDoubleHeaders,
+      currentWeek,
+      snapshots,
+    )
     return { team, ...rec }
   })
 
@@ -149,7 +195,17 @@ export function getPlayoffSeeds(
   matchups: Matchup[],
   pllDoubleHeaders: PllDoubleHeader[],
   currentWeek: number = 9,
-  snapshots: RosterSnapshot[] = []
+  snapshots: RosterSnapshot[] = [],
 ): TeamRecord[] {
-  return getFullStandings(teams, liveRoster, scores, players, schedule, matchups, pllDoubleHeaders, currentWeek, snapshots).slice(0, 4)
+  return getFullStandings(
+    teams,
+    liveRoster,
+    scores,
+    players,
+    schedule,
+    matchups,
+    pllDoubleHeaders,
+    currentWeek,
+    snapshots,
+  ).slice(0, 4)
 }

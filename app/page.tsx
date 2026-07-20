@@ -5,8 +5,17 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from './lib/supabase-browser'
 import type {
-  Profile, FantasyTeam, Player, PlayerScore, RosterSlot, RosterSnapshot,
-  LeagueSettings, WeekSchedule, Matchup, GamePick, PllDoubleHeader
+  Profile,
+  FantasyTeam,
+  Player,
+  PlayerScore,
+  RosterSlot,
+  RosterSnapshot,
+  LeagueSettings,
+  WeekSchedule,
+  Matchup,
+  GamePick,
+  PllDoubleHeader,
 } from './types'
 import MyTeamTab from './components/MyTeamTab'
 import MatchupsTab from './components/MatchupsTab'
@@ -39,8 +48,13 @@ export default function Home() {
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login')
+      return
+    }
 
     const [
       { data: prof },
@@ -80,29 +94,48 @@ export default function Home() {
     setGamePicks(picksData ?? [])
     setPllDoubleHeaders(doubleHeadersData ?? [])
     if (prof?.team_id) {
-      const { data: pt } = await supabase.from('trades').select('id').eq('receiving_team_id', prof.team_id).eq('status', 'pending')
+      const { data: pt } = await supabase
+        .from('trades')
+        .select('id')
+        .eq('receiving_team_id', prof.team_id)
+        .eq('status', 'pending')
       setPendingTradeCount(pt?.length ?? 0)
     }
     if (prof?.is_commissioner) {
       const { data: at } = await supabase.from('trades').select('id').eq('status', 'accepted')
       setPendingApprovalCount(at?.length ?? 0)
     }
-    if (prof?.team_id && !initialTabSet) { setTab('team'); setInitialTabSet(true) }
+    if (prof?.team_id && !initialTabSet) {
+      setTab('team')
+      setInitialTabSet(true)
+    }
     setLoading(false)
   }, [supabase, router])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: 'var(--muted)', fontFamily: 'sans-serif', fontSize: 14 }}>Loading league...</div>
-    </div>
-  )
+  if (loading)
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ color: 'var(--muted)', fontFamily: 'sans-serif', fontSize: 14 }}>
+          Loading league...
+        </div>
+      </div>
+    )
 
   if (!profile || !settings) return null
 
@@ -112,7 +145,8 @@ export default function Home() {
   // Determine if it's my turn in waivers (accounting for traded picks)
   const waiverOpen = settings.waiver_state === 'open'
   const order: number[] = settings.waiver_order ?? []
-  const pickTrades: Array<{ from_team_id: number; to_team_id: number }> = settings.waiver_pick_trades ?? []
+  const pickTrades: Array<{ from_team_id: number; to_team_id: number }> =
+    settings.waiver_pick_trades ?? []
   let isMyWaiverTurn = false
   if (waiverOpen && profile.team_id && order.length > 0) {
     const idx = settings.waiver_current_idx ?? 0
@@ -122,7 +156,7 @@ export default function Home() {
     isMyWaiverTurn = effectiveTeamId === profile.team_id
   }
 
-const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: boolean }> = [
+  const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: boolean }> = [
     { id: 'team', label: 'My Team', hidden: !profile.team_id },
     { id: 'matchups', label: 'Matchups' },
     { id: 'standings', label: 'Standings' },
@@ -134,8 +168,17 @@ const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: b
   ].filter(t => !t.hidden && (!t.commOnly || isCommissioner))
 
   const sharedProps = {
-    teams, players, scores, rosters, snapshots, settings, schedule,
-    matchups, gamePicks, pllDoubleHeaders, onRefresh: loadData,
+    teams,
+    players,
+    scores,
+    rosters,
+    snapshots,
+    settings,
+    schedule,
+    matchups,
+    gamePicks,
+    pllDoubleHeaders,
+    onRefresh: loadData,
     onSignOut: handleSignOut,
   }
 
@@ -143,7 +186,9 @@ const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: b
     <div className="app-container">
       <div className="nav">
         <div className="nav-top">
-          <div className="nav-logo">PLL Fantasy<span> App</span></div>
+          <div className="nav-logo">
+            PLL Fantasy<span> App</span>
+          </div>
         </div>
         <div className="nav-tabs">
           {navTabs.map(t => (
@@ -155,26 +200,70 @@ const navTabs: Array<{ id: string; label: string; hidden?: boolean; commOnly?: b
             >
               {t.label}
               {t.id === 'transactions' && pendingTradeCount > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--red)',
+                    border: '1px solid var(--navy)',
+                  }}
+                />
               )}
               {t.id === 'commissioner' && pendingApprovalCount > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--red)',
+                    border: '1px solid var(--navy)',
+                  }}
+                />
               )}
               {t.id === 'waivers' && isMyWaiverTurn && (
-                <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', border: '1px solid var(--navy)' }} />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--red)',
+                    border: '1px solid var(--navy)',
+                  }}
+                />
               )}
             </button>
           ))}
         </div>
       </div>
 
-      {tab === 'team' && profile.team_id && <MyTeamTab {...sharedProps} myTeamId={profile.team_id} />}
+      {tab === 'team' && profile.team_id && (
+        <MyTeamTab {...sharedProps} myTeamId={profile.team_id} />
+      )}
       {tab === 'matchups' && <MatchupsTab {...sharedProps} myTeamId={profile.team_id} />}
       {tab === 'standings' && <StandingsTab {...sharedProps} />}
       {tab === 'waivers' && <WaiverTab {...sharedProps} myTeamId={profile.team_id} />}
-      {tab === 'fa' && profile.team_id && <FreeAgentsTab {...sharedProps} myTeamId={profile.team_id} />}
+      {tab === 'fa' && profile.team_id && (
+        <FreeAgentsTab {...sharedProps} myTeamId={profile.team_id} />
+      )}
       {tab === 'rosters' && <LeagueTab {...sharedProps} />}
-      {tab === 'transactions' && <TransactionsTab teams={teams} players={players} myTeamId={profile.team_id} onRefresh={loadData} />}
+      {tab === 'transactions' && (
+        <TransactionsTab
+          teams={teams}
+          players={players}
+          myTeamId={profile.team_id}
+          onRefresh={loadData}
+        />
+      )}
       {tab === 'commissioner' && isCommissioner && <CommissionerTab {...sharedProps} />}
     </div>
   )

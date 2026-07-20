@@ -1,0 +1,5 @@
+# Revisions to ignore in `git blame` (bulk formatting, no logic changes).
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Phase 0: initial repo-wide Prettier formatting sweep.
+# <fill in the commit SHA of the formatting commit after you create it>
