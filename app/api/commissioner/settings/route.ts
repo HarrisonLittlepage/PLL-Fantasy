@@ -7,8 +7,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const admin = createSupabaseAdminClient()
-  const { data: profile } = await admin.from('profiles').select('is_commissioner').eq('id', user.id).single()
-  if (!profile?.is_commissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_commissioner')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.is_commissioner)
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   const body = await req.json()
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }

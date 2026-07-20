@@ -8,6 +8,7 @@ You need: a computer, a GitHub account, and an internet connection.
 ## PART 1 — Install the tools you need
 
 ### 1.1 Install Node.js
+
 1. Go to https://nodejs.org
 2. Download the **LTS** version (the left green button)
 3. Run the installer, click through all the defaults
@@ -18,6 +19,7 @@ You need: a computer, a GitHub account, and an internet connection.
    You should see something like `v20.11.0`. If you do, you're good.
 
 ### 1.2 Install Git
+
 1. Go to https://git-scm.com/downloads
 2. Download and install for your operating system
 3. Verify: in Terminal, type `git --version`
@@ -90,6 +92,7 @@ In Terminal, from the `cagelague` folder, run these commands one at a time:
 ```bash
 npm install
 ```
+
 (this installs all the code libraries — takes 1–2 minutes)
 
 ```bash
@@ -97,6 +100,7 @@ npm run dev
 ```
 
 You should see:
+
 ```
 ▲ Next.js 14.1.0
 - Local: http://localhost:3000
@@ -129,16 +133,19 @@ Now go back to http://localhost:3000, log in with your email and password, and y
 Do this from the Commissioner tab in the app:
 
 ### 5.1 Rename your teams
+
 1. Go to Supabase → **Table Editor** → `fantasy_teams`
 2. Click on each team row and update `name`, `owner_name`, and `icon` to match your real teams
 
 ### 5.2 Create accounts for your league mates
+
 1. In the app, click **Commissioner** → **Manage Users**
 2. For each person, enter their display name, email, a temporary password, and assign them to their team
 3. Text them their email and password — they go to your site URL and sign in
 4. They can change their password by... (for v1, they'll need to ask you — password change UI can be added later)
 
 ### 5.3 Update the schedule (optional)
+
 The default schedule has 3 bye/double-header weeks (weeks 3, 5, and 9) built in.
 If you want different weeks or different teams, edit the `week_schedule` and `matchups` tables directly in Supabase Table Editor.
 
@@ -196,17 +203,21 @@ The standings, matchups, and team scores all update automatically.
 ## Troubleshooting
 
 **The app won't start (`npm run dev` fails)**
+
 - Make sure you ran `npm install` first
 - Make sure your `.env.local` file exists and has all three variables filled in
 
 **"Not authenticated" error when logging in**
+
 - Double-check your Supabase URL and anon key in `.env.local`
 
 **Commissioner tab doesn't appear**
+
 - Make sure you ran the SQL in `003_make_commissioner.sql` with your correct email
 - Sign out and sign back in after running it
 
 **Deployed app works locally but not on Vercel**
+
 - Check that you added all three environment variables in the Vercel project settings
 - Go to Vercel → your project → Settings → Environment Variables
 

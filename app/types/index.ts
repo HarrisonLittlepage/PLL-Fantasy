@@ -80,7 +80,8 @@ export interface Matchup {
   home_team_id: number
   away_team_id: number
   is_playoff: boolean
-  matchup_type?: 'regular' | 'semifinal' | 'toilet_bowl' | 'championship' | 'third_place' | 'toilet_bowl_2'
+  matchup_type?:
+    'regular' | 'semifinal' | 'toilet_bowl' | 'championship' | 'third_place' | 'toilet_bowl_2'
   seed_label?: string | null
 }
 
@@ -120,12 +121,18 @@ export interface TeamRecord {
 }
 
 const BASE_SLOT_LABELS = [
-  'Faceoff', 'Attack', 'Attack', 'Midfield', 'Midfield',
-  'Defense', 'Defense', 'Goalie', 'Flex', 'Flex'
+  'Faceoff',
+  'Attack',
+  'Attack',
+  'Midfield',
+  'Midfield',
+  'Defense',
+  'Defense',
+  'Goalie',
+  'Flex',
+  'Flex',
 ]
-const BASE_SLOT_POSITIONS = [
-  'FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX'
-]
+const BASE_SLOT_POSITIONS = ['FO', 'A', 'A', 'M', 'M', 'D', 'D', 'G', 'FLEX', 'FLEX']
 
 export function getSlotLabel(index: number): string {
   if (index < 10) return BASE_SLOT_LABELS[index]
@@ -142,17 +149,25 @@ export const SLOT_LABELS = BASE_SLOT_LABELS
 export const SLOT_POSITIONS = BASE_SLOT_POSITIONS
 
 export const ELIGIBLE_POSITIONS: Record<string, Position[]> = {
-  A:    ['A'],
-  M:    ['M', 'SSDM'],
-  D:    ['D', 'SSDM', 'LSM'],
-  FO:   ['FO'],
-  G:    ['G'],
+  A: ['A'],
+  M: ['M', 'SSDM'],
+  D: ['D', 'SSDM', 'LSM'],
+  FO: ['FO'],
+  G: ['G'],
   FLEX: ['A', 'M', 'D', 'SSDM', 'LSM', 'FO'],
-  BN:   ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'],
+  BN: ['A', 'M', 'D', 'SSDM', 'LSM', 'FO', 'G'],
 }
 
-export const PLL_TEAMS = ['Archers', 'Atlas', 'Cannons', 'Chaos', 'Outlaws', 'Redwoods', 'Waterdogs', 'Whipsnakes']
-
+export const PLL_TEAMS = [
+  'Archers',
+  'Atlas',
+  'Cannons',
+  'Chaos',
+  'Outlaws',
+  'Redwoods',
+  'Waterdogs',
+  'Whipsnakes',
+]
 
 export function shortName(name: string): string {
   if (!name) return name
