@@ -1048,6 +1048,8 @@ function ScoresView({
 
   async function saveScores() {
     setSaving(true)
+    console.log('localScores at save time:', localScores)
+    console.log('number of entries:', Object.keys(localScores).length)
     const payload = Object.entries(localScores).map(([key, points]) => {
       const [playerId, game] = key.split('-')
       return { player_id: parseInt(playerId), week: selectedWeek, game, points }
